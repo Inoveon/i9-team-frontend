@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAuthToken } from "@/lib/api";
+
+interface MenuOption {
+  index: number;
+  label: string;
+}
+
+interface InteractiveMenu {
+  options: MenuOption[];
+}
 
 interface TerminalProps {
   /** tmux session name to subscribe via WebSocket */
@@ -19,6 +28,7 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [menu, setMenu] = useState<InteractiveMenu | null>(null);
 
   useEffect(() => {
     let cleanupObserver: (() => void) | undefined;
@@ -79,11 +89,21 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
           const msg = JSON.parse(event.data as string) as {
             type: string;
             data?: string;
+            options?: MenuOption[];
           };
-          if (msg.type === "output" && msg.data) {
-            // \x1b[H = cursor home sem limpar — sobrescreve no lugar, sem flash
-            const normalized = msg.data.replace(/\r?\n/g, "\r\n");
-            term.write("\x1b[H" + normalized);
+          switch (msg.type) {
+            case "output":
+              if (msg.data) {
+                const normalized = msg.data.replace(/\r?\n/g, "\r\n");
+                term.write("\x1b[H" + normalized);
+              }
+              setMenu(null); // limpa menu quando chegar novo output
+              break;
+            case "interactive_menu":
+              if (msg.options?.length) {
+                setMenu({ options: msg.options });
+              }
+              break;
           }
         } catch {
           term.write(event.data as string);
@@ -114,22 +134,101 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
     ws.send(JSON.stringify({ type: "input", keys: text }));
   }
 
+  function selectOption(index: number) {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: "select_option", session, value: String(index) }));
+    setMenu(null);
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: height ? undefined : 1, minHeight: 0 }}>
-      <div
-        ref={containerRef}
-        style={{
-          flex: height ? undefined : 1,
-          height: height ?? undefined,
-          minHeight: 0,
-          backgroundColor: "#0a0a0a",
-          borderRadius: showInput ? "8px 8px 0 0" : 8,
-          overflow: "hidden",
-          border: "1px solid rgba(0, 255, 136, 0.2)",
-          borderBottom: showInput ? "none" : "1px solid rgba(0, 255, 136, 0.2)",
-          boxShadow: "0 0 20px rgba(0, 255, 136, 0.05)",
-        }}
-      />
+    <div style={{ display: "flex", flexDirection: "column", flex: height ? undefined : 1, minHeight: 0, overflow: "hidden" }}>
+      {/* Terminal + overlay wrapper */}
+      <div style={{ position: "relative", flex: height ? undefined : 1, height: height ?? undefined, minHeight: 0, overflow: "hidden" }}>
+        <div
+          ref={containerRef}
+          style={{
+            height: "100%",
+            backgroundColor: "#0a0a0a",
+            borderRadius: showInput ? "8px 8px 0 0" : 8,
+            overflow: "hidden",
+            border: "1px solid rgba(0, 255, 136, 0.2)",
+            borderBottom: showInput ? "none" : "1px solid rgba(0, 255, 136, 0.2)",
+            boxShadow: "0 0 20px rgba(0, 255, 136, 0.05)",
+          }}
+        />
+
+        {/* Overlay de menu interativo */}
+        {menu && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 16,
+              left: 16,
+              right: 16,
+              zIndex: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              background: "rgba(0, 0, 0, 0.85)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(0, 212, 255, 0.3)",
+              borderRadius: 10,
+              padding: "12px 12px 8px",
+              boxShadow: "0 0 32px rgba(0, 212, 255, 0.1)",
+            }}
+          >
+            <p style={{
+              fontSize: 11,
+              color: "#00d4ff",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 6,
+            }}>
+              Selecione uma opção:
+            </p>
+            {menu.options.map((opt) => (
+              <button
+                key={opt.index}
+                onClick={() => selectOption(opt.index)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: "1px solid transparent",
+                  background: "transparent",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "#e2e8f0",
+                  fontSize: 13,
+                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                  transition: "background 0.12s, border-color 0.12s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(0, 212, 255, 0.12)";
+                  e.currentTarget.style.borderColor = "rgba(0, 212, 255, 0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.borderColor = "transparent";
+                }}
+              >
+                <span style={{
+                  color: "#00d4ff",
+                  fontWeight: 700,
+                  minWidth: 20,
+                  fontFamily: "monospace",
+                }}>
+                  {opt.index}.
+                </span>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {showInput && (
         <form
