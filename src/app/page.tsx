@@ -4,7 +4,7 @@ import { useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TeamCard } from "@/components/TeamCard";
 import { useTeamStore } from "@/lib/store";
-import { api } from "@/lib/api";
+import { getTeams, api } from "@/lib/api";
 import type { Team } from "@/types";
 
 export default function DashboardPage() {
@@ -12,7 +12,7 @@ export default function DashboardPage() {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const data = await api.get<Team[]>("/teams");
+      const data = await getTeams();
       setTeams(data);
     } catch {
       // Backend may not be running yet
@@ -57,22 +57,9 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        style={{ marginBottom: 40 }}
+        style={{ marginBottom: 40, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-          <div
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              backgroundColor: "var(--neon-green)",
-              boxShadow: "0 0 12px var(--neon-green)",
-            }}
-          />
-          <span style={{ fontSize: 12, color: "var(--neon-green)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
-            Maestri Online
-          </span>
-        </div>
+        <div>
         <h1
           style={{
             fontSize: 32,
@@ -84,9 +71,28 @@ export default function DashboardPage() {
         >
           i9 Team Dashboard
         </h1>
-        <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 8 }}>
-          {teams.length} team{teams.length !== 1 ? "s" : ""} configurados
-        </p>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 8 }}>
+            {teams.length} team{teams.length !== 1 ? "s" : ""} configurados
+          </p>
+        </div>
+
+        {/* Indicador online */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 8 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: "var(--neon-green)",
+              boxShadow: "0 0 10px var(--neon-green)",
+              animation: "pulse 2s infinite",
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 11, color: "var(--neon-green)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            Online
+          </span>
+        </div>
       </motion.div>
 
       {/* Grid */}

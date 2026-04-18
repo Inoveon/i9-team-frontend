@@ -10,6 +10,21 @@ export interface Agent {
   startedAt?: string;
 }
 
+/** Formato real retornado por GET /teams/:id/agents/status */
+export interface AgentStatus_Real {
+  id: string;
+  name: string;
+  role: string;
+  sessionName: string;
+  active: boolean;
+}
+
+export interface AgentsStatusResponse {
+  teamId: string;
+  teamName: string;
+  agents: AgentStatus_Real[];
+}
+
 export interface Team {
   id: string;
   project: string;

@@ -19,7 +19,7 @@ export function Terminal({ lines, height = 300 }: TerminalProps) {
     async function init() {
       const { Terminal: XTerm } = await import("@xterm/xterm");
       const { FitAddon } = await import("@xterm/addon-fit");
-      await import("@xterm/xterm/css/xterm.css");
+      // CSS loaded via global stylesheet (globals.css imports xterm styles)
 
       if (!containerRef.current) return;
 
@@ -48,7 +48,6 @@ export function Terminal({ lines, height = 300 }: TerminalProps) {
       termRef.current = term;
       fitRef.current = fitAddon;
 
-      // Write existing lines
       for (const line of lines) {
         term.writeln(line);
       }
@@ -68,7 +67,6 @@ export function Terminal({ lines, height = 300 }: TerminalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Write new lines as they arrive
   useEffect(() => {
     const term = termRef.current;
     if (!term || lines.length === 0) return;
