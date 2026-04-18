@@ -10,6 +10,7 @@ interface MenuOption {
 
 interface InteractiveMenu {
   options: MenuOption[];
+  currentIndex: number;
 }
 
 interface TerminalProps {
@@ -29,6 +30,10 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
   const wsRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menu, setMenu] = useState<InteractiveMenu | null>(null);
+  const menuRef = useRef<InteractiveMenu | null>(null);
+
+  // Sync menuRef whenever menu state changes (accessible inside WS closures)
+  useEffect(() => { menuRef.current = menu; }, [menu]);
 
   useEffect(() => {
     let cleanupObserver: (() => void) | undefined;
@@ -80,6 +85,7 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log("[TerminalWS] WS OPEN — sessão:", session);
         ws.send(JSON.stringify({ type: "subscribe", session }));
         term.writeln(`\x1b[36m[i9-team] Conectado — sessão: ${session}\x1b[0m`);
       };
@@ -106,9 +112,10 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
               menuJustReceived = false;
               break;
             case "interactive_menu":
+              console.log("[TerminalWS] interactive_menu recebido", msg.options, "currentIndex:", (msg as {options?: MenuOption[]; currentIndex?: number}).currentIndex);
               if (msg.options?.length) {
                 menuJustReceived = true;
-                setMenu({ options: msg.options });
+                setMenu({ options: msg.options, currentIndex: (msg as {options?: MenuOption[]; currentIndex?: number}).currentIndex ?? 1 });
               }
               break;
           }
@@ -118,6 +125,7 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
       };
 
       ws.onclose = () => {
+        console.log("[TerminalWS] WS CLOSED — sessão:", session);
         term.writeln("\x1b[33m[i9-team] Conexão encerrada\x1b[0m");
       };
 
@@ -143,8 +151,16 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
 
   function selectOption(index: number) {
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: "select_option", session, value: String(index) }));
+    const state = ws?.readyState;
+    const stateLabel = ["CONNECTING","OPEN","CLOSING","CLOSED"][state ?? 3];
+    console.log("[TerminalWS] selectOption clicked", { index, session, state: stateLabel, wsExists: !!ws });
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[TerminalWS] WS não está OPEN — descartando select_option. State:", stateLabel);
+      return;
+    }
+    const payload = JSON.stringify({ type: "select_option", session, value: String(index), currentIndex: menuRef.current?.currentIndex ?? 1 });
+    console.log("[TerminalWS] enviando →", payload);
+    ws.send(payload);
     setMenu(null);
   }
 
@@ -162,10 +178,13 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
             border: "1px solid rgba(0, 255, 136, 0.2)",
             borderBottom: showInput ? "none" : "1px solid rgba(0, 255, 136, 0.2)",
             boxShadow: "0 0 20px rgba(0, 255, 136, 0.05)",
+            // xterm canvas fica neste container — overlay precisa ficar acima
+            position: "relative",
+            zIndex: 0,
           }}
         />
 
-        {/* Overlay de menu interativo */}
+        {/* Overlay de menu interativo — zIndex alto para ficar sobre canvas do xterm */}
         {menu && (
           <div
             style={{
@@ -173,7 +192,8 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
               bottom: 16,
               left: 16,
               right: 16,
-              zIndex: 10,
+              zIndex: 9999,
+              pointerEvents: "auto",
               display: "flex",
               flexDirection: "column",
               gap: 4,
@@ -212,6 +232,9 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
                   fontSize: 13,
                   fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                   transition: "background 0.12s, border-color 0.12s",
+                  pointerEvents: "auto",
+                  position: "relative",
+                  zIndex: 9999,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "rgba(0, 212, 255, 0.12)";

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Terminal } from "@/components/TerminalWS";
+import { ImageUpload } from "@/components/ImageUpload";
 import { getAgents } from "@/lib/api";
 import type { AgentStatus_Real } from "@/types";
 
@@ -114,15 +115,17 @@ export default function TeamPage() {
 
       {/* Split layout */}
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "260px 1fr", minHeight: 0 }}>
-        {/* Left — agent list */}
+        {/* Left — agent list + image upload */}
         <div
           style={{
             borderRight: "1px solid var(--border)",
             background: "var(--surface)",
-            padding: 16,
-            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
+        <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           <p
             style={{
               fontSize: 10,
@@ -186,6 +189,10 @@ export default function TeamPage() {
               );
             })}
           </div>
+        </div>{/* end agent list scroll */}
+
+          {/* Image upload — colapsável, na base da sidebar */}
+          <ImageUpload />
         </div>
 
         {/* Right — terminal */}
