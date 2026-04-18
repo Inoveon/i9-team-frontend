@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { TeamCard } from "@/components/TeamCard";
+import { useTeamStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import type { Team } from "@/types";
+
+export default function DashboardPage() {
+  const { teams, setTeams, updateTeamStatus } = useTeamStore();
+
+  const fetchTeams = useCallback(async () => {
+    try {
+      const data = await api.get<Team[]>("/teams");
+      setTeams(data);
+    } catch {
+      // Backend may not be running yet
+    }
+  }, [setTeams]);
+
+  useEffect(() => {
+    void fetchTeams();
+    const interval = setInterval(() => void fetchTeams(), 5000);
+    return () => clearInterval(interval);
+  }, [fetchTeams]);
+
+  const handleStart = async (teamId: string) => {
+    try {
+      await api.post(`/teams/${teamId}/start`, {});
+      updateTeamStatus(teamId, "running");
+    } catch (err) {
+      console.error("Start failed", err);
+    }
+  };
+
+  const handleStop = async (teamId: string) => {
+    try {
+      await api.post(`/teams/${teamId}/stop`, {});
+      updateTeamStatus(teamId, "stopped");
+    } catch (err) {
+      console.error("Stop failed", err);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: "40px 32px",
+        maxWidth: 1200,
+        margin: "0 auto",
+      }}
+    >
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ marginBottom: 40 }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              backgroundColor: "var(--neon-green)",
+              boxShadow: "0 0 12px var(--neon-green)",
+            }}
+          />
+          <span style={{ fontSize: 12, color: "var(--neon-green)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
+            Maestri Online
+          </span>
+        </div>
+        <h1
+          style={{
+            fontSize: 32,
+            fontWeight: 800,
+            color: "var(--text)",
+            margin: 0,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          i9 Team Dashboard
+        </h1>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 8 }}>
+          {teams.length} team{teams.length !== 1 ? "s" : ""} configurados
+        </p>
+      </motion.div>
+
+      {/* Grid */}
+      {teams.length === 0 ? (
+        <div
+          className="card"
+          style={{
+            padding: 48,
+            textAlign: "center",
+            color: "var(--text-muted)",
+          }}
+        >
+          <p style={{ fontSize: 16, marginBottom: 8 }}>Nenhum team encontrado</p>
+          <p style={{ fontSize: 13 }}>
+            Configure seus teams em{" "}
+            <a href="/config" style={{ color: "var(--neon-blue)" }}>
+              /config
+            </a>
+          </p>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {teams.map((team, i) => (
+            <motion.div
+              key={team.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
+            >
+              <TeamCard
+                team={team}
+                onStart={handleStart}
+                onStop={handleStop}
+              />
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

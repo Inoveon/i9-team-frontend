@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #080b14;
+  --surface: #0d1117;
+  --surface-2: #161b25;
+  --border: #1e2a3a;
+  --neon-blue: #00d4ff;
+  --neon-purple: #7c3aed;
+  --neon-green: #00ff88;
+  --neon-red: #ff3864;
+  --neon-yellow: #ffd700;
+  --text: #e2e8f0;
+  --text-muted: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Scrollbar dark */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-blue);
+}
+
+/* Glow utilities */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+}
+.glow-blue:hover {
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+}
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
+}
+.glow-purple {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+}
+
+/* Card base */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 24px rgba(0, 212, 255, 0.15);
+}
