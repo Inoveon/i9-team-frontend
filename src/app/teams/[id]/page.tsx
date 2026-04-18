@@ -46,9 +46,14 @@ export default function TeamPage() {
 
   // Ref para só definir seleção inicial uma vez
   const initializedRef = useRef(false);
-  // Ref para manter selectedAgent acessível no callback sem stale closure
+  // Ref atualizado IMEDIATAMENTE no clique — evita race com polling
   const selectedAgentRef = useRef<AgentStatus_Real | null>(null);
   selectedAgentRef.current = selectedAgent;
+
+  function selectAgent(agent: AgentStatus_Real) {
+    selectedAgentRef.current = agent; // atualiza ref antes do re-render
+    setSelectedAgent(agent);
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -143,7 +148,7 @@ export default function TeamPage() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04 }}
-                  onClick={() => setSelectedAgent(agent)}
+                  onClick={() => selectAgent(agent)}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 8,

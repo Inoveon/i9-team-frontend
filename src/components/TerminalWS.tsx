@@ -84,6 +84,10 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
         term.writeln(`\x1b[36m[i9-team] Conectado — sessão: ${session}\x1b[0m`);
       };
 
+      // Flag local: backend envia interactive_menu ANTES do output na mesma tick
+      // sem esse flag, o output apagaria o menu imediatamente
+      let menuJustReceived = false;
+
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data as string) as {
@@ -97,10 +101,13 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
                 const normalized = msg.data.replace(/\r?\n/g, "\r\n");
                 term.write("\x1b[H" + normalized);
               }
-              setMenu(null); // limpa menu quando chegar novo output
+              // Só limpa o menu se NÃO veio logo após um interactive_menu
+              if (!menuJustReceived) setMenu(null);
+              menuJustReceived = false;
               break;
             case "interactive_menu":
               if (msg.options?.length) {
+                menuJustReceived = true;
                 setMenu({ options: msg.options });
               }
               break;
