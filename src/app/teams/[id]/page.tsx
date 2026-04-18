@@ -192,7 +192,7 @@ export default function TeamPage() {
         </div>{/* end agent list scroll */}
 
           {/* Image upload — colapsável, na base da sidebar */}
-          <ImageUpload />
+          <ImageUpload session={activeSession} />
         </div>
 
         {/* Right — terminal */}
