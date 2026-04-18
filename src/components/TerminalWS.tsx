@@ -8,29 +8,29 @@ interface MenuOption {
   label: string;
 }
 
-interface InteractiveMenu {
+export interface InteractiveMenu {
   options: MenuOption[];
   currentIndex: number;
 }
 
 interface TerminalProps {
-  /** tmux session name to subscribe via WebSocket */
   session: string;
-  /** Altura fixa em px. Se omitido, expande com flex para preencher o pai */
   height?: number;
-  /** Mostrar campo de input para envio de mensagens */
   showInput?: boolean;
+  initialMenu?: InteractiveMenu | null;
+  onMenuChange?: (session: string, menu: InteractiveMenu | null) => void;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:4020";
 
-export function Terminal({ session, height, showInput = false }: TerminalProps) {
+export function Terminal({ session, height, showInput = false, initialMenu = null, onMenuChange }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [menu, setMenu] = useState<InteractiveMenu | null>(null);
+  const [menu, setMenu] = useState<InteractiveMenu | null>(initialMenu);
   const menuRef = useRef<InteractiveMenu | null>(null);
+  const noMenuCountRef = useRef(0);
 
   // Sync menuRef whenever menu state changes (accessible inside WS closures)
   useEffect(() => { menuRef.current = menu; }, [menu]);
@@ -90,32 +90,36 @@ export function Terminal({ session, height, showInput = false }: TerminalProps) 
         term.writeln(`\x1b[36m[i9-team] Conectado — sessão: ${session}\x1b[0m`);
       };
 
-      // Flag local: backend envia interactive_menu ANTES do output na mesma tick
-      // sem esse flag, o output apagaria o menu imediatamente
-      let menuJustReceived = false;
-
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data as string) as {
             type: string;
             data?: string;
             options?: MenuOption[];
+            menuType?: string;
+            currentIndex?: number;
+            hasMenu?: boolean;
           };
           switch (msg.type) {
             case "output":
-              if (msg.data) {
-                const normalized = msg.data.replace(/\r?\n/g, "\r\n");
-                term.write("\x1b[H" + normalized);
+              if (msg.hasMenu) {
+                noMenuCountRef.current = 0;
+                // Não re-renderiza enquanto há menu — evita conflito visual
+              } else {
+                noMenuCountRef.current++;
+                if (msg.data) {
+                  const normalized = msg.data.replace(/\r?\n/g, "\r\n");
+                  term.write("\x1b[2J\x1b[H" + normalized);
+                }
+                if (noMenuCountRef.current >= 2) { setMenu(null); onMenuChange?.(session, null); }
               }
-              // Só limpa o menu se NÃO veio logo após um interactive_menu
-              if (!menuJustReceived) setMenu(null);
-              menuJustReceived = false;
               break;
             case "interactive_menu":
-              console.log("[TerminalWS] interactive_menu recebido", msg.options, "currentIndex:", (msg as {options?: MenuOption[]; currentIndex?: number}).currentIndex);
+              noMenuCountRef.current = 0;
               if (msg.options?.length) {
-                menuJustReceived = true;
-                setMenu({ options: msg.options, currentIndex: (msg as {options?: MenuOption[]; currentIndex?: number}).currentIndex ?? 1 });
+                const m = { options: msg.options, currentIndex: msg.currentIndex ?? 1 };
+                setMenu(m);
+                onMenuChange?.(session, m);
               }
               break;
           }

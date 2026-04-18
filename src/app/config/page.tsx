@@ -116,6 +116,7 @@ export default function ConfigPage() {
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
             spellCheck={false}
+            suppressHydrationWarning
             style={{
               width: "100%",
               minHeight: 500,

@@ -62,6 +62,13 @@ export default function TeamPage() {
       setTeamName(data.teamName);
       setAgents(data.agents);
 
+      // Ordenar: orchestrator sempre primeiro
+      data.agents.sort((a, b) => {
+        if (a.role === "orchestrator") return -1;
+        if (b.role === "orchestrator") return 1;
+        return 0;
+      });
+
       // Definir seleção inicial apenas uma vez
       if (!initializedRef.current && data.agents.length > 0) {
         initializedRef.current = true;
@@ -196,7 +203,7 @@ export default function TeamPage() {
         </div>
 
         {/* Right — terminal */}
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0 }}>
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0, position: "relative" }}>
           {selectedAgent && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
               <span
@@ -221,7 +228,10 @@ export default function TeamPage() {
             animate={{ opacity: 1, y: 0 }}
             style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
           >
-            <Terminal session={activeSession} showInput />
+            <Terminal
+              session={activeSession}
+              showInput
+            />
           </motion.div>
         </div>
       </div>

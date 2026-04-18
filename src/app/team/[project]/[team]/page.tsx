@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AgentPanel } from "@/components/AgentPanel";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useTeamStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import type { Team } from "@/types";
@@ -32,6 +33,8 @@ export default function TeamPage() {
 
   const orchestrator = activeTeam?.agents.find((a) => a.role === "orchestrator");
   const workers = activeTeam?.agents.filter((a) => a.role === "worker") ?? [];
+  const [selectedWorkerIdx, setSelectedWorkerIdx] = useState(0);
+  const selectedWorker = workers[selectedWorkerIdx] ?? null;
 
   const handleSendMessage = async (message: string) => {
     if (!activeTeam || !orchestrator) return;
@@ -108,21 +111,80 @@ export default function TeamPage() {
           </div>
 
           {/* Workers */}
-          <div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Agentes ({workers.length})
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {workers.length === 0 ? (
-                <div className="card" style={{ padding: 24, color: "var(--text-muted)" }}>
-                  Nenhum agente worker
+
+            {workers.length === 0 ? (
+              <div className="card" style={{ padding: 24, color: "var(--text-muted)" }}>
+                Nenhum agente worker
+              </div>
+            ) : (
+              <>
+                {/* Tabs de seleção — scroll horizontal se muitos agentes */}
+                <div style={{
+                  display: "flex",
+                  gap: 6,
+                  overflowX: "auto",
+                  paddingBottom: 4,
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "rgba(0,212,255,0.2) transparent",
+                }}>
+                  {workers.map((agent, idx) => {
+                    const isActive = idx === selectedWorkerIdx;
+                    return (
+                      <button
+                        key={agent.id}
+                        onClick={() => setSelectedWorkerIdx(idx)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "5px 12px",
+                          borderRadius: 8,
+                          border: isActive
+                            ? "1px solid rgba(0,212,255,0.5)"
+                            : "1px solid rgba(255,255,255,0.06)",
+                          background: isActive
+                            ? "rgba(0,212,255,0.08)"
+                            : "rgba(255,255,255,0.02)",
+                          color: isActive ? "var(--neon-blue)" : "var(--text-muted)",
+                          fontSize: 12,
+                          fontWeight: isActive ? 700 : 400,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                          transition: "all 0.15s",
+                          boxShadow: isActive ? "0 0 10px rgba(0,212,255,0.15)" : "none",
+                        }}
+                      >
+                        <span style={{
+                          width: 6, height: 6, borderRadius: "50%",
+                          background: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.15)",
+                          flexShrink: 0,
+                        }} />
+                        {agent.name}
+                        <StatusBadge status={agent.status} size="sm" />
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                workers.map((agent) => (
-                  <AgentPanel key={agent.id} agent={agent} height={200} />
-                ))
-              )}
-            </div>
+
+                {/* Painel do agente selecionado */}
+                {selectedWorker && (
+                  <motion.div
+                    key={selectedWorker.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <AgentPanel agent={selectedWorker} height={440} />
+                  </motion.div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
