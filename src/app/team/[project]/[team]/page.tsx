@@ -196,7 +196,22 @@ export default function TeamPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.18 }}
                   >
-                    <AgentPanel agent={selectedWorker} height={440} />
+                    <div className="card" style={{ padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-blue)" }}>
+                          {selectedWorker.name}
+                        </span>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 8 }}>
+                          worker
+                        </span>
+                        <StatusBadge status={selectedWorker.status} size="sm" />
+                      </div>
+                      {selectedWorker.sessionId ? (
+                        <AgentView session={selectedWorker.sessionId} height={400} />
+                      ) : (
+                        <AgentPanel agent={selectedWorker} height={400} />
+                      )}
+                    </div>
                   </motion.div>
                 )}
               </>
