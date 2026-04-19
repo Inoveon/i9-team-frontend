@@ -11,9 +11,10 @@ import { SystemBadge } from "./SystemBadge";
 interface ChatTimelineProps {
   events: StreamEvent[];
   height?: number;
+  onSendMessage?: (message: string) => void;
 }
 
-export function ChatTimeline({ events, height = 440 }: ChatTimelineProps) {
+export function ChatTimeline({ events, height = 440, onSendMessage }: ChatTimelineProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll ao fundo quando chegam novos eventos

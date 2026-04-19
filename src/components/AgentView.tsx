@@ -85,6 +85,22 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
             height={height}
             showInput={showInput && tab === "terminal"}
           />
+          {showInput && onSendMessage && (
+            <div style={{
+              padding: "6px 12px",
+              borderTop: "1px solid rgba(255,255,255,0.04)",
+              background: "rgba(0,0,0,0.15)",
+              fontSize: 11,
+              color: "rgba(0,212,255,0.4)",
+              fontFamily: '"JetBrains Mono", monospace',
+              textAlign: "right",
+            }}>
+              💬 enviar mensagem → aba <span
+                style={{ cursor: "pointer", color: "rgba(0,212,255,0.7)", textDecoration: "underline" }}
+                onClick={() => setTab("chat")}
+              >Chat</span>
+            </div>
+          )}
         </div>
 
         {/* Chat timeline */}
@@ -94,7 +110,7 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
             border: "1px solid rgba(0,255,136,0.1)",
             borderRadius: "0 0 8px 8px",
           }}>
-            <ChatTimeline events={events} height={height} />
+            <ChatTimeline events={events} height={height} onSendMessage={onSendMessage} />
 
             {/* Input de mensagem no chat (se habilitado) */}
             {showInput && onSendMessage && (
