@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Team, Agent, Session } from "@/types";
+import type { Team, Agent, Session, AgentStatus_Real } from "@/types";
 
 interface TeamStore {
   teams: Team[];
@@ -15,6 +15,7 @@ interface TeamStore {
     agentId: string,
     status: Agent["status"]
   ) => void;
+  updateAgentsStatus: (teamId: string, agents: AgentStatus_Real[]) => void;
   appendOutput: (agentId: string, line: string) => void;
   clearOutput: (agentId: string) => void;
   upsertSession: (session: Session) => void;
@@ -38,6 +39,27 @@ export const useTeamStore = create<TeamStore>((set) => ({
           ? { ...state.activeTeam, status }
           : state.activeTeam,
     })),
+
+  updateAgentsStatus: (teamId, agents) =>
+    set((state) => {
+      const statusMap: Record<string, Agent["status"]> = {};
+      for (const a of agents) {
+        statusMap[a.id] = a.active ? "running" : "stopped";
+      }
+      const updateTeamAgents = (t: Team): Team =>
+        t.id !== teamId ? t : {
+          ...t,
+          status: agents.some((a) => a.active) ? "running" : "stopped",
+          agents: t.agents.map((a) => ({
+            ...a,
+            status: statusMap[a.id] ?? a.status,
+          })),
+        };
+      return {
+        teams: state.teams.map(updateTeamAgents),
+        activeTeam: state.activeTeam ? updateTeamAgents(state.activeTeam) : null,
+      };
+    }),
 
   updateAgentStatus: (teamId, agentId, status) =>
     set((state) => ({

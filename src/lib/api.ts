@@ -47,7 +47,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // Formato bruto retornado pelo backend em GET /teams
-interface RawAgent { id: string; name: string; role: string; sessionName: string }
+interface RawAgent { id: string; name: string; role: string; sessionName: string; active?: boolean }
 interface RawTeam {
   id: string; name: string; description?: string;
   createdAt: string; agents: RawAgent[];
@@ -69,7 +69,7 @@ export async function getTeams(): Promise<Team[]> {
         id: a.id,
         name: a.name,
         role: a.role === "orchestrator" ? "orchestrator" : "worker",
-        status: "running", // status real via /agents/status na TeamPage
+        status: a.active === false ? "stopped" : "running",
         sessionId: a.sessionName,
       })),
       createdAt: t.createdAt,

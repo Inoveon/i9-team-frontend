@@ -4,20 +4,31 @@ import { useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TeamCard } from "@/components/TeamCard";
 import { useTeamStore } from "@/lib/store";
-import { getTeams, api } from "@/lib/api";
+import { getTeams, getAgents, api } from "@/lib/api";
 import type { Team } from "@/types";
 
 export default function DashboardPage() {
-  const { teams, setTeams, updateTeamStatus } = useTeamStore();
+  const { teams, setTeams, updateTeamStatus, updateAgentsStatus } = useTeamStore();
 
   const fetchTeams = useCallback(async () => {
     try {
       const data = await getTeams();
       setTeams(data);
+      // Busca status real de cada team em paralelo
+      await Promise.allSettled(
+        data.map(async (team) => {
+          try {
+            const res = await getAgents(team.id);
+            updateAgentsStatus(team.id, res.agents);
+          } catch {
+            // team sem agentes ativos — ignora
+          }
+        })
+      );
     } catch {
       // Backend may not be running yet
     }
-  }, [setTeams]);
+  }, [setTeams, updateAgentsStatus]);
 
   useEffect(() => {
     void fetchTeams();
