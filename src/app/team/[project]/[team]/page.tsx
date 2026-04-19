@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AgentPanel } from "@/components/AgentPanel";
+import { AgentView } from "@/components/AgentView";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useTeamStore } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -96,7 +97,22 @@ export default function TeamPage() {
             <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
               Orquestrador
             </p>
-            {orchestrator ? (
+            {orchestrator?.sessionId ? (
+              <div className="card" style={{ padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-purple)" }}>
+                    {orchestrator.name}
+                  </span>
+                  <StatusBadge status={orchestrator.status} size="sm" />
+                </div>
+                <AgentView
+                  session={orchestrator.sessionId}
+                  height={460}
+                  showInput
+                  onSendMessage={handleSendMessage}
+                />
+              </div>
+            ) : orchestrator ? (
               <AgentPanel
                 agent={orchestrator}
                 height={480}
