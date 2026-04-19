@@ -4,6 +4,7 @@ import { useEffect, useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { AgentPanel } from "@/components/AgentPanel";
 import { AgentView } from "@/components/AgentView";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -46,6 +47,7 @@ export default function TeamPage() {
       });
     } catch (err) {
       console.error("Send message failed", err);
+      toast.error("Falha ao enviar mensagem ao agente");
     }
   };
 

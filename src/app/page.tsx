@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TeamCard } from "@/components/TeamCard";
 import { useTeamStore } from "@/lib/store";
+import { toast } from "sonner";
 import { getTeams, getAgents, api } from "@/lib/api";
 import type { Team } from "@/types";
 
@@ -40,8 +41,10 @@ export default function DashboardPage() {
     try {
       await api.post(`/teams/${teamId}/start`, {});
       updateTeamStatus(teamId, "running");
+      toast.success("Team iniciado");
     } catch (err) {
       console.error("Start failed", err);
+      toast.error("Falha ao iniciar team");
     }
   };
 
@@ -49,8 +52,10 @@ export default function DashboardPage() {
     try {
       await api.post(`/teams/${teamId}/stop`, {});
       updateTeamStatus(teamId, "stopped");
+      toast.success("Team parado");
     } catch (err) {
       console.error("Stop failed", err);
+      toast.error("Falha ao parar team");
     }
   };
 
