@@ -7,6 +7,7 @@ import { ClaudeBubble } from "./ClaudeBubble";
 import { ToolCallCollapsible } from "./ToolCallCollapsible";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { SystemBadge } from "./SystemBadge";
+import { InteractiveMenu } from "./InteractiveMenu";
 
 interface ChatTimelineProps {
   events: StreamEvent[];
@@ -89,9 +90,11 @@ export function ChatTimeline({ events, height = 440, onSendMessage }: ChatTimeli
 
           case "interactive_menu":
             return (
-              <SystemBadge
+              <InteractiveMenu
                 key={ev.id}
-                text={`menu: ${ev.text || "selecione uma opção"}${ev.options?.length ? ` (${ev.options.length} opções)` : ""}`}
+                title={ev.text || "Selecione uma opção"}
+                options={ev.options ?? []}
+                onSelect={onSendMessage}
               />
             );
 
