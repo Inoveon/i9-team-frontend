@@ -15,29 +15,37 @@ export type StreamEventType =
 export interface StreamEvent {
   id: string;
   type: StreamEventType;
-  text?: string;
+  /** Texto normalizado — preenchido pelo hook independente do campo original */
+  text: string;
   name?: string;
   args?: string;
   toolId?: string;
-  content?: string;
   title?: string;
-  options?: Array<{ index: number; label: string }>;
+  options?: string[];
   timestamp: number;
+}
+
+/** Formato real dos eventos emitidos pelo backend (parseMessageStream.ts) */
+interface RawEvent {
+  type: StreamEventType;
+  // user_input | claude_text | tool_result | system
+  content?: string;
+  // thinking
+  label?: string;
+  duration?: string;
+  // tool_call
+  name?: string;
+  args?: string;
+  id?: string;
+  // interactive_menu
+  title?: string;
+  options?: string[];
 }
 
 interface MessageStreamMsg {
   type: "message_stream";
   session: string;
-  events: Array<{
-    type: StreamEventType;
-    text?: string;
-    name?: string;
-    args?: string;
-    id?: string;
-    content?: string;
-    title?: string;
-    options?: Array<{ index: number; label: string }>;
-  }>;
+  events: RawEvent[];
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:4020";
@@ -79,18 +87,41 @@ export function useMessageStream(session: string) {
           if (!Array.isArray(msg.events) || msg.events.length === 0) return;
 
           const now = Date.now();
-          const mapped: StreamEvent[] = msg.events.map((e) => ({
-            id: nextId(),
-            type: e.type,
-            text: e.text,
-            name: e.name,
-            args: e.args,
-            toolId: e.id,
-            content: e.content,
-            title: e.title,
-            options: e.options,
-            timestamp: now,
-          }));
+          const mapped: StreamEvent[] = msg.events.map((e) => {
+            // Normaliza o campo de texto de acordo com o tipo do evento
+            let text = "";
+            switch (e.type) {
+              case "user_input":
+              case "claude_text":
+              case "tool_result":
+              case "system":
+                text = e.content ?? "";
+                break;
+              case "thinking":
+                text = e.label ? (e.duration ? `${e.label} (${e.duration})` : e.label) : "thinking";
+                break;
+              case "tool_call":
+                text = e.name ?? "";
+                break;
+              case "interactive_menu":
+                text = e.title ?? "Selecione uma opção";
+                break;
+            }
+
+            return {
+              id: nextId(),
+              type: e.type,
+              text,
+              name: e.name,
+              args: e.args,
+              toolId: e.id,
+              title: e.title,
+              options: e.options,
+              timestamp: now,
+            };
+          });
+
+          console.log("[useMessageStream] eventos recebidos:", mapped.map(e => ({ type: e.type, text: e.text?.slice(0, 50) })));
 
           setEvents((prev) => [...prev, ...mapped]);
         } catch {

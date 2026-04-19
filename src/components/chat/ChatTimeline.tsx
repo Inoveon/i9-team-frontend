@@ -22,10 +22,11 @@ export function ChatTimeline({ events, height = 440 }: ChatTimelineProps) {
   }, [events.length]);
 
   // Mapeia tool_result de volta para o tool_call pelo toolId
+  // tool_result.text = conteúdo normalizado pelo hook (campo content do backend)
   const resultMap: Record<string, string> = {};
   for (const ev of events) {
-    if (ev.type === "tool_result" && ev.toolId && ev.content) {
-      resultMap[ev.toolId] = ev.content;
+    if (ev.type === "tool_result" && ev.toolId && ev.text) {
+      resultMap[ev.toolId] = ev.text;
     }
   }
 
@@ -89,7 +90,7 @@ export function ChatTimeline({ events, height = 440 }: ChatTimelineProps) {
             return (
               <SystemBadge
                 key={ev.id}
-                text={`menu: ${ev.title ?? "selecione uma opção"}`}
+                text={`menu: ${ev.text || "selecione uma opção"}${ev.options?.length ? ` (${ev.options.length} opções)` : ""}`}
               />
             );
 
