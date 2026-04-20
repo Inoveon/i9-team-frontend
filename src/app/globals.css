@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@xterm/xterm/css/xterm.css";
+@import "highlight.js/styles/github-dark.css";
 
 :root {
   --bg: #080b14;
@@ -68,4 +69,129 @@ body {
 .card:hover {
   border-color: var(--neon-blue);
   box-shadow: 0 0 24px rgba(0, 212, 255, 0.15);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Estilização markdown renderizado nas Notas */
+.notes-markdown h1,
+.notes-markdown h2,
+.notes-markdown h3,
+.notes-markdown h4,
+.notes-markdown h5,
+.notes-markdown h6 {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 1.2em 0 0.5em;
+  line-height: 1.3;
+}
+.notes-markdown h1 {
+  font-size: 1.6em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+  color: var(--neon-blue);
+}
+.notes-markdown h2 {
+  font-size: 1.35em;
+  color: var(--neon-blue);
+}
+.notes-markdown h3 {
+  font-size: 1.15em;
+  color: var(--neon-green);
+}
+.notes-markdown h4 {
+  font-size: 1em;
+  color: var(--neon-purple);
+}
+.notes-markdown p {
+  margin: 0.6em 0;
+  color: var(--text);
+}
+.notes-markdown ul,
+.notes-markdown ol {
+  margin: 0.6em 0;
+  padding-left: 1.5em;
+}
+.notes-markdown li {
+  margin: 0.25em 0;
+}
+.notes-markdown a {
+  color: var(--neon-blue);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 212, 255, 0.35);
+}
+.notes-markdown a:hover {
+  text-decoration-color: var(--neon-blue);
+}
+.notes-markdown code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.88em;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--neon-green);
+}
+.notes-markdown pre {
+  background: rgba(0, 0, 0, 0.55) !important;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+.notes-markdown pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: var(--text);
+  font-size: 0.85em;
+}
+.notes-markdown blockquote {
+  border-left: 3px solid var(--neon-purple);
+  background: rgba(124, 58, 237, 0.05);
+  margin: 0.8em 0;
+  padding: 6px 14px;
+  color: var(--text-muted);
+  border-radius: 0 6px 6px 0;
+}
+.notes-markdown table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-size: 0.9em;
+  width: auto;
+}
+.notes-markdown th,
+.notes-markdown td {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  text-align: left;
+}
+.notes-markdown th {
+  background: rgba(0, 212, 255, 0.06);
+  color: var(--neon-blue);
+  font-weight: 700;
+}
+.notes-markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.2em 0;
+}
+.notes-markdown input[type="checkbox"] {
+  accent-color: var(--neon-green);
+  margin-right: 6px;
+}
+.notes-markdown img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }

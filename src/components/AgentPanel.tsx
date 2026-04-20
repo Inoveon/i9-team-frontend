@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { Terminal } from "./Terminal";
 import { StatusBadge } from "./StatusBadge";
 import { useTeamStore } from "@/lib/store";
@@ -10,7 +10,7 @@ import type { Agent } from "@/types";
 interface AgentPanelProps {
   agent: Agent;
   height?: number;
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => void | Promise<void>;
   showInput?: boolean;
 }
 
@@ -23,6 +23,9 @@ export function AgentPanel({
   const { appendOutput, agentOutputs } = useTeamStore();
   const lines = agentOutputs[agent.id] ?? [];
 
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
   useEffect(() => {
     if (!agent.sessionId) return;
 
@@ -34,6 +37,29 @@ export function AgentPanel({
       ws.close();
     };
   }, [agent.sessionId, agent.id, appendOutput]);
+
+  const handleSend = useCallback(async () => {
+    const msg = draft.trim();
+    if (!msg || sending || !onSendMessage) return;
+    console.log("[AgentPanel] enviando mensagem", { agent: agent.name, msg });
+    setSending(true);
+    setDraft("");
+    try {
+      await onSendMessage(msg);
+      console.log("[AgentPanel] mensagem enviada com sucesso", { agent: agent.name });
+    } catch (err) {
+      console.error("[AgentPanel] falha ao enviar mensagem", { agent: agent.name, err });
+    } finally {
+      setSending(false);
+    }
+  }, [draft, sending, onSendMessage, agent.name]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
 
   return (
     <div
@@ -69,21 +95,16 @@ export function AgentPanel({
       <Terminal lines={lines} height={height} />
 
       {showInput && onSendMessage && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            const msg = fd.get("message") as string;
-            if (msg.trim()) {
-              onSendMessage(msg.trim());
-              e.currentTarget.reset();
-            }
-          }}
-          style={{ display: "flex", gap: 8 }}
-        >
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
-            name="message"
-            placeholder="Enviar mensagem ao orquestrador..."
+            type="text"
+            inputMode="text"
+            enterKeyHint="send"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={sending}
+            placeholder={sending ? "enviando..." : "Enviar mensagem ao orquestrador..."}
             style={{
               flex: 1,
               padding: "8px 12px",
@@ -91,27 +112,34 @@ export function AgentPanel({
               border: "1px solid var(--border)",
               background: "var(--surface-2)",
               color: "var(--text)",
-              fontSize: 13,
+              fontSize: 14, // iOS zoom guard
               outline: "none",
+              minWidth: 0,
             }}
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="sentences"
           />
           <button
-            type="submit"
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={sending || !draft.trim()}
+            aria-label="Enviar mensagem"
             style={{
               padding: "8px 16px",
               borderRadius: 8,
               border: "1px solid var(--neon-blue)",
-              background: "transparent",
-              color: "var(--neon-blue)",
+              background: sending ? "rgba(0,212,255,0.05)" : "transparent",
+              color: !draft.trim() ? "rgba(0,212,255,0.35)" : "var(--neon-blue)",
               fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
+              fontWeight: 700,
+              cursor: sending || !draft.trim() ? "not-allowed" : "pointer",
+              flexShrink: 0,
             }}
           >
-            Enviar
+            {sending ? "..." : "Enviar"}
           </button>
-        </form>
+        </div>
       )}
     </div>
   );

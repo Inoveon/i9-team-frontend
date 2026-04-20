@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getAuthToken } from "@/lib/api";
+import { getWsBase } from "@/lib/runtime-config";
 
 export type StreamEventType =
   | "user_input"
@@ -48,8 +49,6 @@ interface MessageStreamMsg {
   events: RawEvent[];
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:4020";
-
 let _eventCounter = 0;
 function nextId() {
   return `e${++_eventCounter}-${Date.now()}`;
@@ -61,6 +60,25 @@ export function useMessageStream(session: string) {
 
   const clear = useCallback(() => setEvents([]), []);
 
+  /**
+   * Acrescenta um evento localmente (feedback otimista).
+   * Ex.: ao enviar mensagem pelo chat, empurra user_input imediatamente
+   * na timeline sem esperar o WS ecoar.
+   */
+  const appendLocal = useCallback(
+    (type: StreamEventType, text: string, extras?: Partial<StreamEvent>) => {
+      const ev: StreamEvent = {
+        id: nextId(),
+        type,
+        text,
+        timestamp: Date.now(),
+        ...extras,
+      };
+      setEvents((prev) => [...prev, ev]);
+    },
+    []
+  );
+
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
@@ -68,6 +86,7 @@ export function useMessageStream(session: string) {
     async function connect() {
       let token = "";
       try { token = await getAuthToken(); } catch { /* sem token */ }
+      const WS_URL = getWsBase();
       const url = token
         ? `${WS_URL}/ws?token=${encodeURIComponent(token)}`
         : `${WS_URL}/ws`;
@@ -145,5 +164,5 @@ export function useMessageStream(session: string) {
     };
   }, [session]);
 
-  return { events, clear };
+  return { events, clear, appendLocal };
 }

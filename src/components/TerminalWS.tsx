@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAuthToken } from "@/lib/api";
+import { getWsBase } from "@/lib/runtime-config";
 
 interface MenuOption {
   index: number;
@@ -20,8 +21,6 @@ interface TerminalProps {
   initialMenu?: InteractiveMenu | null;
   onMenuChange?: (session: string, menu: InteractiveMenu | null) => void;
 }
-
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:4020";
 
 export function Terminal({ session, height, showInput = false, initialMenu = null, onMenuChange }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +79,7 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
       // WebSocket — token via query param (browser não suporta headers em WS)
       let token = "";
       try { token = await getAuthToken(); } catch { /* sem token */ }
+      const WS_URL = getWsBase();
       const wsUrl = token ? `${WS_URL}/ws?token=${encodeURIComponent(token)}` : `${WS_URL}/ws`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

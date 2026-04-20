@@ -1,26 +1,49 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AgentPanel } from "@/components/AgentPanel";
 import { AgentView } from "@/components/AgentView";
 import { StatusBadge } from "@/components/StatusBadge";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 import { useTeamStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import type { Team } from "@/types";
 
+type PageTab = "agents" | "notes";
+
 export default function TeamPage() {
   const params = useParams<{ project: string; team: string }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { activeTeam, setActiveTeam } = useTeamStore();
+
+  const initialTab: PageTab = searchParams.get("tab") === "notes" ? "notes" : "agents";
+  const [pageTab, setPageTab] = useState<PageTab>(initialTab);
+
+  const changeTab = useCallback(
+    (next: PageTab) => {
+      setPageTab(next);
+      const current = new URLSearchParams(searchParams.toString());
+      if (next === "notes") current.set("tab", "notes");
+      else current.delete("tab");
+      // Limpa ?note= se saindo de notas
+      if (next !== "notes") current.delete("note");
+      const qs = current.toString();
+      const url = qs ? `?${qs}` : window.location.pathname;
+      router.replace(url, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const fetchTeam = useCallback(async () => {
     try {
-      const data = await api.get<Team>(
+      const data = await api.get<{ team: Team }>(
         `/teams/${params.project}/${params.team}`
       );
-      setActiveTeam(data);
+      setActiveTeam(data.team);
     } catch {
       // ignore
     }
@@ -28,9 +51,11 @@ export default function TeamPage() {
 
   useEffect(() => {
     void fetchTeam();
+    // Polling só faz sentido na aba de agentes (evita refresh em cima do editor)
+    if (pageTab !== "agents") return;
     const interval = setInterval(() => void fetchTeam(), 5000);
     return () => clearInterval(interval);
-  }, [fetchTeam]);
+  }, [fetchTeam, pageTab]);
 
   const orchestrator = activeTeam?.agents.find((a) => a.role === "orchestrator");
   const workers = activeTeam?.agents.filter((a) => a.role === "worker") ?? [];
@@ -38,14 +63,32 @@ export default function TeamPage() {
   const selectedWorker = workers[selectedWorkerIdx] ?? null;
 
   const handleSendMessage = async (message: string) => {
-    if (!activeTeam || !orchestrator) return;
-    try {
-      await api.post(`/teams/${activeTeam.id}/message`, {
-        agentId: orchestrator.id,
+    if (!activeTeam) {
+      console.warn("[TeamPage] handleSendMessage abortado — activeTeam ausente", { message });
+      throw new Error("Team ainda não carregado — aguarde.");
+    }
+    if (!orchestrator) {
+      console.warn("[TeamPage] handleSendMessage abortado — orquestrador ausente", {
+        teamId: activeTeam.id,
         message,
       });
+      throw new Error("Nenhum orquestrador configurado neste team.");
+    }
+    const payload = { agentId: orchestrator.id, message };
+    console.log("[TeamPage] POST /teams/:id/message", {
+      teamId: activeTeam.id,
+      agentName: orchestrator.name,
+      ...payload,
+    });
+    try {
+      const resp = await api.post<{ ok: boolean; session: string; agent: string }>(
+        `/teams/${activeTeam.id}/message`,
+        payload
+      );
+      console.log("[TeamPage] POST /message OK", resp);
     } catch (err) {
-      console.error("Send message failed", err);
+      console.error("[TeamPage] POST /message FAIL", err);
+      throw err;
     }
   };
 
@@ -72,17 +115,67 @@ export default function TeamPage() {
           fontSize: 24,
           fontWeight: 800,
           color: "var(--text)",
-          marginBottom: 24,
+          marginBottom: 16,
           letterSpacing: "-0.02em",
         }}
       >
         {activeTeam?.name ?? `${params.project}/${params.team}`}
       </motion.h1>
 
+      {/* Tabs da página (Agentes / Notas) */}
+      <div
+        style={{
+          display: "flex",
+          gap: 2,
+          marginBottom: 20,
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        {(
+          [
+            { key: "agents", label: "Agentes", icon: "▸" },
+            { key: "notes", label: "Notas", icon: "📄" },
+          ] as { key: PageTab; label: string; icon: string }[]
+        ).map((t) => {
+          const isActive = pageTab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => changeTab(t.key)}
+              style={{
+                padding: "8px 18px",
+                fontSize: 12,
+                fontWeight: isActive ? 700 : 400,
+                fontFamily: '"JetBrains Mono", monospace',
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                background: isActive ? "rgba(0,212,255,0.06)" : "transparent",
+                border: "none",
+                borderBottom: isActive
+                  ? "2px solid var(--neon-blue)"
+                  : "2px solid transparent",
+                color: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.35)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: -1,
+              }}
+            >
+              <span style={{ fontSize: 13 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
       {!activeTeam ? (
         <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--text-muted)" }}>
           Carregando team...
         </div>
+      ) : pageTab === "notes" ? (
+        <NotesPanel teamId={activeTeam.id} />
       ) : (
         <div
           style={{

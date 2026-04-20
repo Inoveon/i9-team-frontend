@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, type KeyboardEvent } from "react";
 import { Terminal } from "./TerminalWS";
 import { ChatTimeline } from "./chat/ChatTimeline";
 import { useMessageStream } from "@/hooks/useMessageStream";
@@ -9,16 +9,50 @@ interface AgentViewProps {
   session: string;
   height?: number;
   showInput?: boolean;
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => void | Promise<void>;
 }
 
 type Tab = "terminal" | "chat";
 
 export function AgentView({ session, height = 440, showInput = false, onSendMessage }: AgentViewProps) {
   const [tab, setTab] = useState<Tab>("terminal");
-  const { events, clear } = useMessageStream(session);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const { events, clear, appendLocal } = useMessageStream(session);
 
   const hasNewChat = events.length > 0;
+
+  const handleSend = useCallback(async () => {
+    const msg = draft.trim();
+    if (!msg || sending) return;
+    if (!onSendMessage) {
+      console.warn("[AgentView] onSendMessage ausente — mensagem ignorada", { session, msg });
+      return;
+    }
+    console.log("[AgentView] enviando mensagem", { session, msg });
+    setSending(true);
+    // Feedback otimista: já adiciona o user_input na timeline
+    appendLocal("user_input", msg);
+    // Limpa o input imediatamente para UX fluida
+    setDraft("");
+    try {
+      await onSendMessage(msg);
+      console.log("[AgentView] mensagem enviada com sucesso", { session, msg });
+    } catch (err) {
+      console.error("[AgentView] falha ao enviar mensagem", { session, msg, err });
+      appendLocal("system", `Falha ao enviar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSending(false);
+    }
+  }, [draft, sending, onSendMessage, session, appendLocal]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Enter envia; Shift+Enter reservado para futuras multiline (hoje input simples ignora)
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -98,16 +132,7 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
 
             {/* Input de mensagem no chat (se habilitado) */}
             {showInput && onSendMessage && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  const msg = (fd.get("message") as string)?.trim();
-                  if (msg) {
-                    onSendMessage(msg);
-                    e.currentTarget.reset();
-                  }
-                }}
+              <div
                 style={{
                   display: "flex",
                   gap: 8,
@@ -115,13 +140,22 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
                   borderTop: "1px solid rgba(255,255,255,0.05)",
                   background: "rgba(0,0,0,0.2)",
                   borderRadius: "0 0 8px 8px",
+                  alignItems: "center",
                 }}
               >
                 <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "32px" }}>❯</span>
                 <input
-                  name="message"
-                  placeholder="Enviar mensagem ao agente..."
+                  type="text"
+                  inputMode="text"
+                  enterKeyHint="send"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={sending}
+                  placeholder={sending ? "enviando..." : "Enviar mensagem ao agente..."}
                   autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
                   spellCheck={false}
                   style={{
                     flex: 1,
@@ -130,27 +164,33 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
                     outline: "none",
                     color: "#00ff88",
                     fontFamily: '"JetBrains Mono", monospace',
-                    fontSize: 13,
+                    fontSize: 14, // iOS não faz zoom quando >=14px
                     caretColor: "#00d4ff",
+                    minWidth: 0,
                   }}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => void handleSend()}
+                  disabled={sending || !draft.trim()}
+                  aria-label="Enviar mensagem"
                   style={{
-                    padding: "4px 16px",
+                    padding: "6px 14px",
                     borderRadius: 6,
                     border: "1px solid rgba(0,255,136,0.4)",
-                    background: "transparent",
-                    color: "#00ff88",
+                    background: sending ? "rgba(0,255,136,0.05)" : "transparent",
+                    color: !draft.trim() ? "rgba(0,255,136,0.25)" : "#00ff88",
                     fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
+                    fontWeight: 700,
+                    cursor: sending || !draft.trim() ? "not-allowed" : "pointer",
                     fontFamily: "monospace",
+                    letterSpacing: "0.05em",
+                    flexShrink: 0,
                   }}
                 >
-                  Enter
+                  {sending ? "..." : "Send"}
                 </button>
-              </form>
+              </div>
             )}
           </div>
         )}
