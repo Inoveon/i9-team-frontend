@@ -7,6 +7,11 @@ import { useMessageStream } from "@/hooks/useMessageStream";
 
 interface AgentViewProps {
   session: string;
+  /**
+   * Altura fixa em px. Se omitido → modo **flex** (ocupa o espaço disponível
+   * do container pai, que precisa ser `display:flex flexDirection:column`).
+   * Padrão: modo flex.
+   */
   height?: number;
   showInput?: boolean;
   onSendMessage?: (message: string) => void | Promise<void>;
@@ -14,7 +19,8 @@ interface AgentViewProps {
 
 type Tab = "terminal" | "chat";
 
-export function AgentView({ session, height = 440, showInput = false, onSendMessage }: AgentViewProps) {
+export function AgentView({ session, height, showInput = false, onSendMessage }: AgentViewProps) {
+  const isFlex = height === undefined;
   const [tab, setTab] = useState<Tab>("terminal");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -55,13 +61,23 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        // modo flex: herda altura do pai; modo fixo: altura natural
+        flex: isFlex ? 1 : undefined,
+        height: isFlex ? "100%" : undefined,
+      }}
+    >
       {/* Tab bar */}
       <div style={{
         display: "flex",
         gap: 0,
         borderBottom: "1px solid rgba(255,255,255,0.06)",
         marginBottom: 0,
+        flexShrink: 0,
       }}>
         {(["terminal", "chat"] as Tab[]).map((t) => {
           const isActive = tab === t;
@@ -111,9 +127,25 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
       </div>
 
       {/* Conteúdo da aba */}
-      <div style={{ position: "relative", minHeight: 0 }}>
+      <div
+        style={{
+          position: "relative",
+          minHeight: 0,
+          flex: isFlex ? 1 : undefined,
+          display: isFlex ? "flex" : "block",
+          flexDirection: isFlex ? "column" : undefined,
+          overflow: isFlex ? "hidden" : undefined,
+        }}
+      >
         {/* Terminal — sempre montado, apenas escondido quando na aba chat */}
-        <div style={{ display: tab === "terminal" ? "block" : "none" }}>
+        <div
+          style={{
+            display: tab === "terminal" ? (isFlex ? "flex" : "block") : "none",
+            flex: isFlex ? 1 : undefined,
+            flexDirection: isFlex ? "column" : undefined,
+            minHeight: 0,
+          }}
+        >
           <Terminal
             session={session}
             height={height}
@@ -127,6 +159,11 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
             background: "rgba(8,11,20,0.95)",
             border: "1px solid rgba(0,255,136,0.1)",
             borderRadius: "0 0 8px 8px",
+            display: "flex",
+            flexDirection: "column",
+            flex: isFlex ? 1 : undefined,
+            minHeight: 0,
+            overflow: "hidden",
           }}>
             <ChatTimeline events={events} height={height} />
 
@@ -141,6 +178,7 @@ export function AgentView({ session, height = 440, showInput = false, onSendMess
                   background: "rgba(0,0,0,0.2)",
                   borderRadius: "0 0 8px 8px",
                   alignItems: "center",
+                  flexShrink: 0,
                 }}
               >
                 <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "32px" }}>❯</span>

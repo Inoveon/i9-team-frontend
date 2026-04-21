@@ -9,6 +9,9 @@ import type { Agent } from "@/types";
 
 interface AgentPanelProps {
   agent: Agent;
+  /**
+   * Altura fixa em px. Se omitido → modo **flex** (ocupa espaço do pai).
+   */
   height?: number;
   onSendMessage?: (message: string) => void | Promise<void>;
   showInput?: boolean;
@@ -16,10 +19,11 @@ interface AgentPanelProps {
 
 export function AgentPanel({
   agent,
-  height = 280,
+  height,
   onSendMessage,
   showInput = false,
 }: AgentPanelProps) {
+  const isFlex = height === undefined;
   const { appendOutput, agentOutputs } = useTeamStore();
   const lines = agentOutputs[agent.id] ?? [];
 
@@ -64,9 +68,17 @@ export function AgentPanel({
   return (
     <div
       className="card"
-      style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}
+      style={{
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        flex: isFlex ? 1 : undefined,
+        minHeight: 0,
+        height: isFlex ? "100%" : undefined,
+      }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
         <div>
           <span
             style={{
@@ -95,7 +107,7 @@ export function AgentPanel({
       <Terminal lines={lines} height={height} />
 
       {showInput && onSendMessage && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
           <input
             type="text"
             inputMode="text"
