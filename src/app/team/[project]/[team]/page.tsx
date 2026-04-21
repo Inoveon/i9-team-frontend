@@ -62,22 +62,40 @@ export default function TeamPage() {
   const [selectedWorkerIdx, setSelectedWorkerIdx] = useState(0);
   const selectedWorker = workers[selectedWorkerIdx] ?? null;
 
-  const handleSendMessage = async (message: string) => {
+  /**
+   * Envia mensagem ao agente.
+   *
+   * Onda 1 — Fix F7: agora aceita `agentIdOverride` opcional para permitir
+   * envio direto a um worker (o orquestrador continua sendo o default).
+   */
+  const handleSendMessage = async (message: string, agentIdOverride?: string) => {
     if (!activeTeam) {
       console.warn("[TeamPage] handleSendMessage abortado — activeTeam ausente", { message });
       throw new Error("Team ainda não carregado — aguarde.");
     }
-    if (!orchestrator) {
-      console.warn("[TeamPage] handleSendMessage abortado — orquestrador ausente", {
+
+    const targetAgent = agentIdOverride
+      ? activeTeam.agents.find((a) => a.id === agentIdOverride)
+      : orchestrator;
+
+    if (!targetAgent) {
+      console.warn("[TeamPage] handleSendMessage abortado — agente destino ausente", {
         teamId: activeTeam.id,
+        agentIdOverride,
         message,
       });
-      throw new Error("Nenhum orquestrador configurado neste team.");
+      throw new Error(
+        agentIdOverride
+          ? "Agente destinatário não encontrado neste team."
+          : "Nenhum orquestrador configurado neste team."
+      );
     }
-    const payload = { agentId: orchestrator.id, message };
+
+    const payload = { agentId: targetAgent.id, message };
     console.log("[TeamPage] POST /teams/:id/message", {
       teamId: activeTeam.id,
-      agentName: orchestrator.name,
+      agentName: targetAgent.name,
+      agentRole: targetAgent.role,
       ...payload,
     });
     try {
@@ -300,9 +318,19 @@ export default function TeamPage() {
                         <StatusBadge status={selectedWorker.status} size="sm" />
                       </div>
                       {selectedWorker.sessionId ? (
-                        <AgentView session={selectedWorker.sessionId} height={400} />
+                        <AgentView
+                          session={selectedWorker.sessionId}
+                          height={400}
+                          showInput
+                          onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
+                        />
                       ) : (
-                        <AgentPanel agent={selectedWorker} height={400} />
+                        <AgentPanel
+                          agent={selectedWorker}
+                          height={400}
+                          showInput
+                          onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
+                        />
                       )}
                     </div>
                   </motion.div>
