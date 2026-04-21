@@ -280,6 +280,7 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
             border: "1px solid rgba(0, 255, 136, 0.2)",
             borderRadius: "0 0 8px 8px",
             padding: "8px 12px",
+            flexShrink: 0,
           }}
         >
           <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "32px" }}>

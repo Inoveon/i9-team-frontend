@@ -111,9 +111,18 @@ export default function TeamPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", padding: "32px 24px" }}>
+    <div
+      style={{
+        height: "100vh",
+        padding: "32px 24px",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* ── HEADER (nav + título + tabs) — flexShrink:0 ───────────────── */}
       {/* Nav */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 24, flexShrink: 0 }}>
         <Link
           href="/"
           style={{ fontSize: 13, color: "var(--text-muted)", textDecoration: "none" }}
@@ -135,6 +144,7 @@ export default function TeamPage() {
           color: "var(--text)",
           marginBottom: 16,
           letterSpacing: "-0.02em",
+          flexShrink: 0,
         }}
       >
         {activeTeam?.name ?? `${params.project}/${params.team}`}
@@ -147,6 +157,7 @@ export default function TeamPage() {
           gap: 2,
           marginBottom: 20,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
         }}
       >
         {(
@@ -188,29 +199,77 @@ export default function TeamPage() {
         })}
       </div>
 
+      {/* ── CONTEÚDO — flex:1 ocupa restante do viewport ─────────────── */}
       {!activeTeam ? (
-        <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--text-muted)" }}>
+        <div
+          className="card"
+          style={{
+            padding: 48,
+            textAlign: "center",
+            color: "var(--text-muted)",
+            flexShrink: 0,
+          }}
+        >
           Carregando team...
         </div>
       ) : pageTab === "notes" ? (
-        <NotesPanel teamId={activeTeam.id} />
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <NotesPanel teamId={activeTeam.id} />
+        </div>
       ) : (
         <div
+          className="team-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "60fr 40fr",
             gap: 20,
-            alignItems: "start",
+            alignItems: "stretch",
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
-          {/* Orchestrator */}
-          <div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+          {/* Orchestrator column */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              height: "100%",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: 12,
+                flexShrink: 0,
+              }}
+            >
               Orquestrador
             </p>
             {orchestrator?.sessionId ? (
-              <div className="card" style={{ padding: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div
+                className="card"
+                style={{
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  minHeight: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 10,
+                    flexShrink: 0,
+                  }}
+                >
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-purple)" }}>
                     {orchestrator.name}
                   </span>
@@ -218,7 +277,6 @@ export default function TeamPage() {
                 </div>
                 <AgentView
                   session={orchestrator.sessionId}
-                  height={460}
                   showInput
                   onSendMessage={handleSendMessage}
                 />
@@ -226,25 +284,43 @@ export default function TeamPage() {
             ) : orchestrator ? (
               <AgentPanel
                 agent={orchestrator}
-                height={480}
                 showInput
                 onSendMessage={handleSendMessage}
               />
             ) : (
-              <div className="card" style={{ padding: 24, color: "var(--text-muted)" }}>
+              <div
+                className="card"
+                style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}
+              >
                 Nenhum orquestrador configurado
               </div>
             )}
           </div>
 
-          {/* Workers */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          {/* Workers column */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              minHeight: 0,
+              height: "100%",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                flexShrink: 0,
+              }}
+            >
               Agentes ({workers.length})
             </p>
 
             {workers.length === 0 ? (
-              <div className="card" style={{ padding: 24, color: "var(--text-muted)" }}>
+              <div className="card" style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}>
                 Nenhum agente worker
               </div>
             ) : (
@@ -257,6 +333,7 @@ export default function TeamPage() {
                   paddingBottom: 4,
                   scrollbarWidth: "thin",
                   scrollbarColor: "rgba(0,212,255,0.2) transparent",
+                  flexShrink: 0,
                 }}>
                   {workers.map((agent, idx) => {
                     const isActive = idx === selectedWorkerIdx;
@@ -299,16 +376,39 @@ export default function TeamPage() {
                   })}
                 </div>
 
-                {/* Painel do agente selecionado */}
+                {/* Painel do agente selecionado — flex:1 ocupa restante da coluna */}
                 {selectedWorker && (
                   <motion.div
                     key={selectedWorker.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.18 }}
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
                   >
-                    <div className="card" style={{ padding: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div
+                      className="card"
+                      style={{
+                        padding: 12,
+                        display: "flex",
+                        flexDirection: "column",
+                        flex: 1,
+                        minHeight: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 10,
+                          flexShrink: 0,
+                        }}
+                      >
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-blue)" }}>
                           {selectedWorker.name}
                         </span>
@@ -320,14 +420,12 @@ export default function TeamPage() {
                       {selectedWorker.sessionId ? (
                         <AgentView
                           session={selectedWorker.sessionId}
-                          height={400}
                           showInput
                           onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
                         />
                       ) : (
                         <AgentPanel
                           agent={selectedWorker}
-                          height={400}
                           showInput
                           onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
                         />
@@ -340,6 +438,20 @@ export default function TeamPage() {
           </div>
         </div>
       )}
+
+      {/* ── Responsivo: em <900px vira coluna única empilhada ─────────── */}
+      <style jsx>{`
+        @media (max-width: 900px) {
+          :global(.team-grid) {
+            grid-template-columns: 1fr !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+          }
+          :global(.team-grid) > div {
+            min-height: 420px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
