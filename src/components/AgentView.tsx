@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "./TerminalWS";
-import { ChatTimeline } from "./chat/ChatTimeline";
+import { ChatTimeline, type ChatTimelineHandle } from "./chat/ChatTimeline";
+import { ChatInput } from "./chat/ChatInput";
+import { NewMessagesPill } from "./chat/NewMessagesPill";
 import { useMessageStream } from "@/hooks/useMessageStream";
 
 interface AgentViewProps {
@@ -22,43 +24,59 @@ type Tab = "terminal" | "chat";
 export function AgentView({ session, height, showInput = false, onSendMessage }: AgentViewProps) {
   const isFlex = height === undefined;
   const [tab, setTab] = useState<Tab>("terminal");
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   const { events, clear, appendLocal } = useMessageStream(session);
 
-  const hasNewChat = events.length > 0;
+  const hasNewCount = events.length > 0;
 
-  const handleSend = useCallback(async () => {
-    const msg = draft.trim();
-    if (!msg || sending) return;
-    if (!onSendMessage) {
-      console.warn("[AgentView] onSendMessage ausente — mensagem ignorada", { session, msg });
-      return;
-    }
-    console.log("[AgentView] enviando mensagem", { session, msg });
-    setSending(true);
-    // Feedback otimista: já adiciona o user_input na timeline
-    appendLocal("user_input", msg);
-    // Limpa o input imediatamente para UX fluida
-    setDraft("");
-    try {
-      await onSendMessage(msg);
-      console.log("[AgentView] mensagem enviada com sucesso", { session, msg });
-    } catch (err) {
-      console.error("[AgentView] falha ao enviar mensagem", { session, msg, err });
-      appendLocal("system", `Falha ao enviar: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSending(false);
-    }
-  }, [draft, sending, onSendMessage, session, appendLocal]);
+  // ── Sticky-bottom / pill (Onda 2) ────────────────────────────────────
+  const timelineRef = useRef<ChatTimelineHandle | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNew, setHasNew] = useState(false);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // Enter envia; Shift+Enter reservado para futuras multiline (hoje input simples ignora)
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
+  // Toda vez que chega evento novo e o usuário NÃO está no fim → sinaliza pill.
+  // Quando o usuário volta ao fim → limpa o sinal.
+  const prevLenRef = useRef(0);
+  useEffect(() => {
+    const grew = events.length > prevLenRef.current;
+    prevLenRef.current = events.length;
+    if (isAtBottom) {
+      setHasNew(false);
+    } else if (grew) {
+      setHasNew(true);
     }
-  };
+  }, [events.length, isAtBottom]);
+
+  const onBottomChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+    if (atBottom) setHasNew(false);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    timelineRef.current?.scrollToBottom("smooth");
+    setHasNew(false);
+  }, []);
+
+  // ── Envio de mensagem (Onda 1 — otimista) ───────────────────────────
+  const handleSend = useCallback(
+    async (msg: string) => {
+      if (!onSendMessage) {
+        console.warn("[AgentView] onSendMessage ausente — mensagem ignorada", { session, msg });
+        return;
+      }
+      console.log("[AgentView] enviando mensagem", { session, bytes: msg.length });
+      // Feedback otimista: empurra user_input localmente (será reconciliado com eco)
+      appendLocal("user_input", msg);
+      try {
+        await onSendMessage(msg);
+        console.log("[AgentView] mensagem enviada com sucesso", { session });
+      } catch (err) {
+        console.error("[AgentView] falha ao enviar mensagem", { session, err });
+        appendLocal("system", `Falha ao enviar: ${err instanceof Error ? err.message : String(err)}`);
+        throw err; // propaga para ChatInput não travar UI
+      }
+    },
+    [onSendMessage, session, appendLocal]
+  );
 
   return (
     <div
@@ -81,7 +99,7 @@ export function AgentView({ session, height, showInput = false, onSendMessage }:
       }}>
         {(["terminal", "chat"] as Tab[]).map((t) => {
           const isActive = tab === t;
-          const label = t === "terminal" ? "Terminal" : `Chat${hasNewChat && t === "chat" ? ` (${events.length})` : ""}`;
+          const label = t === "terminal" ? "Terminal" : `Chat${hasNewCount && t === "chat" ? ` (${events.length})` : ""}`;
           return (
             <button
               key={t}
@@ -155,79 +173,33 @@ export function AgentView({ session, height, showInput = false, onSendMessage }:
 
         {/* Chat timeline */}
         {tab === "chat" && (
-          <div style={{
-            background: "rgba(8,11,20,0.95)",
-            border: "1px solid rgba(0,255,136,0.1)",
-            borderRadius: "0 0 8px 8px",
-            display: "flex",
-            flexDirection: "column",
-            flex: isFlex ? 1 : undefined,
-            minHeight: 0,
-            overflow: "hidden",
-          }}>
-            <ChatTimeline events={events} height={height} />
+          <div
+            style={{
+              background: "rgba(8,11,20,0.95)",
+              border: "1px solid rgba(0,255,136,0.1)",
+              borderRadius: "0 0 8px 8px",
+              display: "flex",
+              flexDirection: "column",
+              flex: isFlex ? 1 : undefined,
+              minHeight: 0,
+              overflow: "hidden",
+            }}
+          >
+            <ChatTimeline
+              ref={timelineRef}
+              events={events}
+              height={height}
+              onBottomChange={onBottomChange}
+            />
 
-            {/* Input de mensagem no chat (se habilitado) */}
+            {/* Wrapper relativo: ancora a pill acima do input (bottom: 100%) */}
             {showInput && onSendMessage && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  padding: "8px 12px",
-                  borderTop: "1px solid rgba(255,255,255,0.05)",
-                  background: "rgba(0,0,0,0.2)",
-                  borderRadius: "0 0 8px 8px",
-                  alignItems: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "32px" }}>❯</span>
-                <input
-                  type="text"
-                  inputMode="text"
-                  enterKeyHint="send"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={sending}
-                  placeholder={sending ? "enviando..." : "Enviar mensagem ao agente..."}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
-                  spellCheck={false}
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    color: "#00ff88",
-                    fontFamily: '"JetBrains Mono", monospace',
-                    fontSize: 14, // iOS não faz zoom quando >=14px
-                    caretColor: "#00d4ff",
-                    minWidth: 0,
-                  }}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <NewMessagesPill
+                  visible={hasNew && !isAtBottom}
+                  onClick={scrollToBottom}
                 />
-                <button
-                  type="button"
-                  onClick={() => void handleSend()}
-                  disabled={sending || !draft.trim()}
-                  aria-label="Enviar mensagem"
-                  style={{
-                    padding: "6px 14px",
-                    borderRadius: 6,
-                    border: "1px solid rgba(0,255,136,0.4)",
-                    background: sending ? "rgba(0,255,136,0.05)" : "transparent",
-                    color: !draft.trim() ? "rgba(0,255,136,0.25)" : "#00ff88",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: sending || !draft.trim() ? "not-allowed" : "pointer",
-                    fontFamily: "monospace",
-                    letterSpacing: "0.05em",
-                    flexShrink: 0,
-                  }}
-                >
-                  {sending ? "..." : "Send"}
-                </button>
+                <ChatInput onSend={handleSend} />
               </div>
             )}
           </div>
