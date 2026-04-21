@@ -4,10 +4,15 @@ import { useEffect, useRef } from "react";
 
 interface TerminalProps {
   lines: string[];
+  /**
+   * Altura fixa em px. Se omitido → modo **flex** (ocupa o espaço do container
+   * pai que deve ser `display:flex flexDirection:column`).
+   */
   height?: number;
 }
 
-export function Terminal({ lines, height = 300 }: TerminalProps) {
+export function Terminal({ lines, height }: TerminalProps) {
+  const isFlex = height === undefined;
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const fitRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
@@ -78,7 +83,9 @@ export function Terminal({ lines, height = 300 }: TerminalProps) {
     <div
       ref={containerRef}
       style={{
-        height,
+        height: isFlex ? undefined : height,
+        flex: isFlex ? 1 : undefined,
+        minHeight: 0,
         backgroundColor: "#080b14",
         borderRadius: 8,
         overflow: "hidden",

@@ -10,10 +10,15 @@ import { SystemBadge } from "./SystemBadge";
 
 interface ChatTimelineProps {
   events: StreamEvent[];
+  /**
+   * Altura fixa em px. Se omitido → modo **flex** (ocupa o espaço disponível
+   * do container pai, que precisa ser `display:flex flexDirection:column`).
+   */
   height?: number;
 }
 
-export function ChatTimeline({ events, height = 440 }: ChatTimelineProps) {
+export function ChatTimeline({ events, height }: ChatTimelineProps) {
+  const isFlex = height === undefined;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll ao fundo quando chegam novos eventos
@@ -33,7 +38,10 @@ export function ChatTimeline({ events, height = 440 }: ChatTimelineProps) {
   return (
     <div
       style={{
-        height,
+        // modo flex: ocupa o espaço do pai; modo fixo: altura em px
+        height: isFlex ? undefined : height,
+        flex: isFlex ? 1 : undefined,
+        minHeight: 0,
         overflowY: "auto",
         overflowX: "hidden",
         padding: "12px 16px",
