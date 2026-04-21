@@ -3,9 +3,11 @@
 import { useCallback, useEffect } from "react";
 import { Terminal } from "./Terminal";
 import { StatusBadge } from "./StatusBadge";
-import { ChatInput } from "./chat/ChatInput";
+import { ChatInput, type ChatInputSendExtras } from "./chat/ChatInput";
+import { ToastStack } from "./notes/NotesToast";
 import { useTeamStore } from "@/lib/store";
 import { createWebSocket } from "@/lib/ws";
+import { useToasts } from "@/hooks/useToasts";
 import type { Agent } from "@/types";
 
 interface AgentPanelProps {
@@ -14,8 +16,13 @@ interface AgentPanelProps {
    * Altura fixa em px. Se omitido → modo **flex** (ocupa espaço do pai).
    */
   height?: number;
-  onSendMessage?: (message: string) => void | Promise<void>;
+  onSendMessage?: (
+    message: string,
+    opts?: { attachmentIds?: string[] }
+  ) => void | Promise<void>;
   showInput?: boolean;
+  /** Team ID necessário para uploads de anexo */
+  teamId?: string;
 }
 
 export function AgentPanel({
@@ -23,10 +30,12 @@ export function AgentPanel({
   height,
   onSendMessage,
   showInput = false,
+  teamId,
 }: AgentPanelProps) {
   const isFlex = height === undefined;
   const { appendOutput, agentOutputs } = useTeamStore();
   const lines = agentOutputs[agent.id] ?? [];
+  const { toasts, pushToast, dismissToast } = useToasts();
 
   useEffect(() => {
     if (!agent.sessionId) return;
@@ -41,11 +50,16 @@ export function AgentPanel({
   }, [agent.sessionId, agent.id, appendOutput]);
 
   const handleSend = useCallback(
-    async (msg: string) => {
+    async (msg: string, extras?: ChatInputSendExtras) => {
       if (!onSendMessage) return;
-      console.log("[AgentPanel] enviando mensagem", { agent: agent.name, bytes: msg.length });
+      const attachmentIds = extras?.attachmentIds;
+      console.log("[AgentPanel] enviando mensagem", {
+        agent: agent.name,
+        bytes: msg.length,
+        attachments: attachmentIds?.length ?? 0,
+      });
       try {
-        await onSendMessage(msg);
+        await onSendMessage(msg, attachmentIds ? { attachmentIds } : undefined);
         console.log("[AgentPanel] mensagem enviada com sucesso", { agent: agent.name });
       } catch (err) {
         console.error("[AgentPanel] falha ao enviar mensagem", { agent: agent.name, err });
@@ -99,6 +113,10 @@ export function AgentPanel({
       {showInput && onSendMessage && (
         <ChatInput
           onSend={handleSend}
+          teamId={teamId}
+          onValidationError={(message) =>
+            pushToast("warning", message, { title: "Anexo rejeitado" })
+          }
           placeholder={
             agent.role === "orchestrator"
               ? "Enviar mensagem ao orquestrador..."
@@ -106,6 +124,9 @@ export function AgentPanel({
           }
         />
       )}
+
+      {/* Toasts (validação de anexos, etc) */}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
