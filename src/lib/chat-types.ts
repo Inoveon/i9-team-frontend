@@ -5,6 +5,8 @@
  * reducer (`chat-reducer.ts`) e store Zustand (`store.ts`).
  */
 
+import type { EventAttachment } from "./chat-attachments";
+
 export type StreamEventType =
   | "user_input"
   | "claude_text"
@@ -33,6 +35,14 @@ export interface StreamEvent {
   reconciled?: boolean;
   /** Timestamp do clique (client-side) para reconciliação FIFO */
   clientTs?: number;
+
+  // ─── Onda 5 — anexos ────────────────────────────────────────────────
+  /**
+   * Imagens anexadas ao `user_input`. Preenchido localmente no `appendLocal`
+   * otimista (com `previewUrl`) e preservado no merge com o eco do servidor
+   * (que não tem acesso ao buffer tmux reconstruído com anexos).
+   */
+  attachments?: EventAttachment[];
 }
 
 /**

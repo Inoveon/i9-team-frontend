@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "./TerminalWS";
 import { ChatTimeline, type ChatTimelineHandle } from "./chat/ChatTimeline";
-import { ChatInput } from "./chat/ChatInput";
+import { ChatInput, type ChatInputSendExtras } from "./chat/ChatInput";
 import { NewMessagesPill } from "./chat/NewMessagesPill";
+import { ToastStack } from "./notes/NotesToast";
 import { useMessageStream } from "@/hooks/useMessageStream";
+import { useToasts } from "@/hooks/useToasts";
 
 interface AgentViewProps {
   session: string;
@@ -16,15 +18,27 @@ interface AgentViewProps {
    */
   height?: number;
   showInput?: boolean;
-  onSendMessage?: (message: string) => void | Promise<void>;
+  onSendMessage?: (
+    message: string,
+    opts?: { attachmentIds?: string[] }
+  ) => void | Promise<void>;
+  /** Team ID necessário para uploads de anexo (POST /upload/image?teamId=...) */
+  teamId?: string;
 }
 
 type Tab = "terminal" | "chat";
 
-export function AgentView({ session, height, showInput = false, onSendMessage }: AgentViewProps) {
+export function AgentView({
+  session,
+  height,
+  showInput = false,
+  onSendMessage,
+  teamId,
+}: AgentViewProps) {
   const isFlex = height === undefined;
   const [tab, setTab] = useState<Tab>("terminal");
   const { events, clear, appendLocal } = useMessageStream(session);
+  const { toasts, pushToast, dismissToast } = useToasts();
 
   const hasNewCount = events.length > 0;
 
@@ -56,18 +70,24 @@ export function AgentView({ session, height, showInput = false, onSendMessage }:
     setHasNew(false);
   }, []);
 
-  // ── Envio de mensagem (Onda 1 — otimista) ───────────────────────────
+  // ── Envio de mensagem (Ondas 1 + 5 — otimista + anexos) ─────────────
   const handleSend = useCallback(
-    async (msg: string) => {
+    async (msg: string, extras?: ChatInputSendExtras) => {
       if (!onSendMessage) {
         console.warn("[AgentView] onSendMessage ausente — mensagem ignorada", { session, msg });
         return;
       }
-      console.log("[AgentView] enviando mensagem", { session, bytes: msg.length });
-      // Feedback otimista: empurra user_input localmente (será reconciliado com eco)
-      appendLocal("user_input", msg);
+      const attachmentIds = extras?.attachmentIds;
+      const attachments = extras?.attachments;
+      console.log("[AgentView] enviando mensagem", {
+        session,
+        bytes: msg.length,
+        attachments: attachmentIds?.length ?? 0,
+      });
+      // Feedback otimista: empurra user_input localmente com anexos (será reconciliado com eco)
+      appendLocal("user_input", msg, { attachments });
       try {
-        await onSendMessage(msg);
+        await onSendMessage(msg, attachmentIds ? { attachmentIds } : undefined);
         console.log("[AgentView] mensagem enviada com sucesso", { session });
       } catch (err) {
         console.error("[AgentView] falha ao enviar mensagem", { session, err });
@@ -199,12 +219,21 @@ export function AgentView({ session, height, showInput = false, onSendMessage }:
                   visible={hasNew && !isAtBottom}
                   onClick={scrollToBottom}
                 />
-                <ChatInput onSend={handleSend} />
+                <ChatInput
+                  onSend={handleSend}
+                  teamId={teamId}
+                  onValidationError={(message) =>
+                    pushToast("warning", message, { title: "Anexo rejeitado" })
+                  }
+                />
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Toasts (validação de anexos, etc) */}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

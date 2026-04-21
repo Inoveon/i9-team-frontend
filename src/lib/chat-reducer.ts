@@ -109,6 +109,9 @@ function tryReconcileOptimistic(
       Math.abs(echo.timestamp - e.clientTs) < RECONCILE_WINDOW_MS
     ) {
       // Promove: preserva id + posição, limpa otimista, marca reconciliado.
+      // Onda 5: preserva `attachments` locais (com previewUrl do browser) —
+      // o eco do backend não reconstrói esses campos pois o tmux só recebeu
+      // os paths das imagens. Manter o que o otimista tinha é o correto.
       const oldKey = eventKey(e);
       const promoted: StreamEvent = {
         ...e,
@@ -117,6 +120,7 @@ function tryReconcileOptimistic(
         clientTs: e.clientTs,
         optimistic: false,
         reconciled: true,
+        attachments: e.attachments ?? echo.attachments,
       };
       events[i] = promoted;
 
@@ -170,6 +174,8 @@ export function reduceEvents(
         ...ev,
         id: existing.id, // preserva id estável do cliente
         clientTs: existing.clientTs ?? ev.clientTs,
+        // Onda 5: preserva anexos locais se o eco não os trouxer
+        attachments: existing.attachments ?? ev.attachments,
       };
     } else {
       byKey.set(key, events.length);

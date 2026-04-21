@@ -65,10 +65,16 @@ export default function TeamPage() {
   /**
    * Envia mensagem ao agente.
    *
-   * Onda 1 — Fix F7: agora aceita `agentIdOverride` opcional para permitir
-   * envio direto a um worker (o orquestrador continua sendo o default).
+   * Onda 1 — Fix F7: aceita `agentIdOverride` opcional (worker alvo).
+   * Onda 5 — aceita `opts.attachmentIds` (UUIDs pré-uploadados em
+   *   POST /upload/image?teamId=<id>). O backend (Onda 5) valida e
+   *   injeta as imagens no tmux.
    */
-  const handleSendMessage = async (message: string, agentIdOverride?: string) => {
+  const handleSendMessage = async (
+    message: string,
+    agentIdOverride?: string,
+    opts?: { attachmentIds?: string[] }
+  ) => {
     if (!activeTeam) {
       console.warn("[TeamPage] handleSendMessage abortado — activeTeam ausente", { message });
       throw new Error("Team ainda não carregado — aguarde.");
@@ -91,12 +97,22 @@ export default function TeamPage() {
       );
     }
 
-    const payload = { agentId: targetAgent.id, message };
+    const attachmentIds = opts?.attachmentIds;
+    const payload: {
+      agentId: string;
+      message: string;
+      attachmentIds?: string[];
+    } = { agentId: targetAgent.id, message };
+    if (attachmentIds && attachmentIds.length > 0) {
+      payload.attachmentIds = attachmentIds;
+    }
+
     console.log("[TeamPage] POST /teams/:id/message", {
       teamId: activeTeam.id,
       agentName: targetAgent.name,
       agentRole: targetAgent.role,
-      ...payload,
+      bytes: message.length,
+      attachments: attachmentIds?.length ?? 0,
     });
     try {
       const resp = await api.post<{ ok: boolean; session: string; agent: string }>(
@@ -278,14 +294,16 @@ export default function TeamPage() {
                 <AgentView
                   session={orchestrator.sessionId}
                   showInput
-                  onSendMessage={handleSendMessage}
+                  teamId={activeTeam.id}
+                  onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
                 />
               </div>
             ) : orchestrator ? (
               <AgentPanel
                 agent={orchestrator}
                 showInput
-                onSendMessage={handleSendMessage}
+                teamId={activeTeam.id}
+                onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
               />
             ) : (
               <div
@@ -421,13 +439,19 @@ export default function TeamPage() {
                         <AgentView
                           session={selectedWorker.sessionId}
                           showInput
-                          onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
+                          teamId={activeTeam.id}
+                          onSendMessage={(msg, opts) =>
+                            handleSendMessage(msg, selectedWorker.id, opts)
+                          }
                         />
                       ) : (
                         <AgentPanel
                           agent={selectedWorker}
                           showInput
-                          onSendMessage={(msg) => handleSendMessage(msg, selectedWorker.id)}
+                          teamId={activeTeam.id}
+                          onSendMessage={(msg, opts) =>
+                            handleSendMessage(msg, selectedWorker.id, opts)
+                          }
                         />
                       )}
                     </div>

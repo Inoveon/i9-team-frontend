@@ -136,7 +136,13 @@ export const ChatTimeline = forwardRef<ChatTimelineHandle, ChatTimelineProps>(
         {events.map((ev) => {
           switch (ev.type) {
             case "user_input":
-              return <UserBubble key={ev.id} text={ev.text ?? ""} />;
+              return (
+                <UserBubble
+                  key={ev.id}
+                  text={ev.text ?? ""}
+                  attachments={ev.attachments}
+                />
+              );
 
             case "claude_text":
               return <ClaudeBubble key={ev.id} text={ev.text ?? ""} />;
