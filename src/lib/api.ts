@@ -1,6 +1,6 @@
 import type { Team, AgentsStatusResponse } from "@/types";
+import { getApiBase } from "@/lib/runtime-config";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4020";
 const ADMIN_USER = process.env.NEXT_PUBLIC_API_USER ?? "admin";
 const ADMIN_PASS = process.env.NEXT_PUBLIC_API_PASS ?? "i9team";
 
@@ -14,6 +14,7 @@ let tokenExpiry = 0;
 async function getToken(): Promise<string> {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
 
+  const BASE_URL = getApiBase();
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -29,6 +30,7 @@ async function getToken(): Promise<string> {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken();
+  const BASE_URL = getApiBase();
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",

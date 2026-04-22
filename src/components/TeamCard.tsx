@@ -25,7 +25,7 @@ export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
       style={{ padding: "20px 24px", minWidth: 0, cursor: "pointer", position: "relative" }}
     >
       {/* Card inteiro clicável */}
-      <Link href={`/teams/${team.id}`} style={{ position: "absolute", inset: 0, zIndex: 0 }} aria-label={team.name} />
+      <Link href={`/team/${team.project}/${team.name}`} style={{ position: "absolute", inset: 0, zIndex: 0 }} aria-label={team.name} />
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12, position: "relative", zIndex: 1 }}>

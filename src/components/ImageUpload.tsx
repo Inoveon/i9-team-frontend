@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAuthToken } from "@/lib/api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4020";
+import { getApiBase } from "@/lib/runtime-config";
 
 const UPLOAD_SERVER_DIR = process.env.NEXT_PUBLIC_UPLOAD_DIR ?? "/tmp/i9-team-uploads";
 
@@ -57,6 +56,7 @@ export function ImageUpload({ session, onUpload, collapsed: initialCollapsed = t
 
       const form = new FormData();
       form.append("file", file);
+      const API_BASE = getApiBase();
       const res = await fetch(`${API_BASE}/upload/image`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -82,6 +82,7 @@ export function ImageUpload({ session, onUpload, collapsed: initialCollapsed = t
     try {
       let token = "";
       try { token = await getAuthToken(); } catch { /* sem token */ }
+      const API_BASE = getApiBase();
       const res = await fetch(`${API_BASE}/tmux/sessions/${encodeURIComponent(session)}/keys`, {
         method: "POST",
         headers: {

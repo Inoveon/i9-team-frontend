@@ -1,4 +1,4 @@
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:4020";
+import { getWsBase } from "@/lib/runtime-config";
 
 export type WSMessageHandler = (data: string) => void;
 
@@ -7,6 +7,7 @@ export function createWebSocket(
   onMessage: WSMessageHandler,
   onClose?: () => void
 ): WebSocket {
+  const WS_BASE = getWsBase();
   const ws = new WebSocket(`${WS_BASE}/ws/${sessionId}`);
 
   ws.onmessage = (event) => {
