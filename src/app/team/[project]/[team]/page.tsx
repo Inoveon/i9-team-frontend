@@ -194,7 +194,7 @@ export default function TeamPage() {
                 fontFamily: '"JetBrains Mono", monospace',
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                background: isActive ? "rgba(0,212,255,0.06)" : "transparent",
+                background: isActive ? "rgba(90, 200, 250, 0.06)" : "transparent",
                 border: "none",
                 borderBottom: isActive
                   ? "2px solid var(--neon-blue)"
@@ -350,7 +350,7 @@ export default function TeamPage() {
                   overflowX: "auto",
                   paddingBottom: 4,
                   scrollbarWidth: "thin",
-                  scrollbarColor: "rgba(0,212,255,0.2) transparent",
+                  scrollbarColor: "rgba(90, 200, 250, 0.2) transparent",
                   flexShrink: 0,
                 }}>
                   {workers.map((agent, idx) => {
@@ -366,10 +366,10 @@ export default function TeamPage() {
                           padding: "5px 12px",
                           borderRadius: 8,
                           border: isActive
-                            ? "1px solid rgba(0,212,255,0.5)"
+                            ? "1px solid rgba(90, 200, 250, 0.5)"
                             : "1px solid rgba(255,255,255,0.06)",
                           background: isActive
-                            ? "rgba(0,212,255,0.08)"
+                            ? "rgba(90, 200, 250, 0.08)"
                             : "rgba(255,255,255,0.02)",
                           color: isActive ? "var(--neon-blue)" : "var(--text-muted)",
                           fontSize: 12,
@@ -379,7 +379,7 @@ export default function TeamPage() {
                           whiteSpace: "nowrap",
                           flexShrink: 0,
                           transition: "all 0.15s",
-                          boxShadow: isActive ? "0 0 10px rgba(0,212,255,0.15)" : "none",
+                          boxShadow: isActive ? "0 0 10px rgba(90, 200, 250, 0.15)" : "none",
                         }}
                       >
                         <span style={{

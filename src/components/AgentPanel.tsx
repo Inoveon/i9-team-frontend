@@ -71,7 +71,7 @@ export function AgentPanel({
 
   return (
     <div
-      className="card"
+      className="glass glass-hover"
       style={{
         padding: 16,
         display: "flex",
@@ -82,13 +82,21 @@ export function AgentPanel({
         height: isFlex ? "100%" : undefined,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexShrink: 0,
+        }}
+      >
         <div>
           <span
             style={{
               fontSize: 13,
               fontWeight: 700,
-              color: agent.role === "orchestrator" ? "var(--neon-purple)" : "var(--neon-blue)",
+              color:
+                agent.role === "orchestrator" ? "#a78bfa" : "var(--accent)",
             }}
           >
             {agent.name}
@@ -97,7 +105,7 @@ export function AgentPanel({
             style={{
               marginLeft: 8,
               fontSize: 10,
-              color: "var(--text-muted)",
+              color: "var(--text-tertiary)",
               textTransform: "uppercase",
               letterSpacing: "0.08em",
             }}

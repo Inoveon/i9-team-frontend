@@ -265,7 +265,7 @@ export function ChatInput({
             padding: "8px 12px 0",
             overflowX: "auto",
             scrollbarWidth: "thin",
-            scrollbarColor: "rgba(0,212,255,0.2) transparent",
+            scrollbarColor: "rgba(90, 200, 250, 0.2) transparent",
           }}
         >
           {attachments.map((a) => (
@@ -306,7 +306,7 @@ export function ChatInput({
         <span
           aria-hidden="true"
           style={{
-            color: "rgba(0,255,136,0.5)",
+            color: "rgba(34, 197, 94, 0.5)",
             fontFamily: "monospace",
             fontSize: 13,
             lineHeight: "32px",
@@ -338,11 +338,11 @@ export function ChatInput({
             background: "transparent",
             border: "none",
             outline: "none",
-            color: "#00ff88",
+            color: "var(--status-success)",
             fontFamily: '"JetBrains Mono", monospace',
             fontSize: 16, // >=16px evita auto-zoom do iOS
             lineHeight: "1.4",
-            caretColor: "#00d4ff",
+            caretColor: "var(--accent)",
             padding: "6px 0",
             minWidth: 0,
           }}
@@ -368,9 +368,9 @@ export function ChatInput({
             height: 32,
             padding: 0,
             borderRadius: 6,
-            border: "1px solid rgba(0,212,255,0.3)",
+            border: "1px solid rgba(90, 200, 250, 0.3)",
             background: "transparent",
-            color: canAttach ? "var(--neon-blue, #00d4ff)" : "rgba(0,212,255,0.25)",
+            color: canAttach ? "var(--neon-blue, var(--accent))" : "rgba(90, 200, 250, 0.25)",
             cursor: canAttach ? "pointer" : "not-allowed",
             display: "flex",
             alignItems: "center",
@@ -382,12 +382,12 @@ export function ChatInput({
           }}
           onMouseEnter={(e) => {
             if (!canAttach) return;
-            e.currentTarget.style.background = "rgba(0,212,255,0.08)";
-            e.currentTarget.style.borderColor = "rgba(0,212,255,0.6)";
+            e.currentTarget.style.background = "rgba(90, 200, 250, 0.08)";
+            e.currentTarget.style.borderColor = "rgba(90, 200, 250, 0.6)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.borderColor = "rgba(0,212,255,0.3)";
+            e.currentTarget.style.borderColor = "rgba(90, 200, 250, 0.3)";
           }}
         >
           <svg
@@ -418,9 +418,9 @@ export function ChatInput({
           style={{
             padding: "6px 14px",
             borderRadius: 6,
-            border: "1px solid rgba(0,255,136,0.4)",
-            background: sending ? "rgba(0,255,136,0.05)" : "transparent",
-            color: canSend ? "#00ff88" : "rgba(0,255,136,0.25)",
+            border: "1px solid rgba(34, 197, 94, 0.4)",
+            background: sending ? "rgba(34, 197, 94, 0.05)" : "transparent",
+            color: canSend ? "var(--status-success)" : "rgba(34, 197, 94, 0.25)",
             fontSize: 12,
             fontWeight: 700,
             cursor: canSend ? "pointer" : "not-allowed",

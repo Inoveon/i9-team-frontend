@@ -8,23 +8,23 @@ const STATUS_CONFIG: Record<
 > = {
   idle: {
     label: "Idle",
-    color: "var(--text-muted)",
-    dot: "var(--text-muted)",
+    color: "var(--text-tertiary)",
+    dot: "var(--text-tertiary)",
   },
   running: {
     label: "Running",
-    color: "var(--neon-green)",
-    dot: "var(--neon-green)",
+    color: "var(--status-success)",
+    dot: "var(--status-success)",
   },
   error: {
     label: "Error",
-    color: "var(--neon-red)",
-    dot: "var(--neon-red)",
+    color: "var(--status-error)",
+    dot: "var(--status-error)",
   },
   stopped: {
     label: "Stopped",
-    color: "var(--text-muted)",
-    dot: "var(--text-muted)",
+    color: "var(--text-tertiary)",
+    dot: "var(--text-tertiary)",
   },
 };
 

@@ -3,17 +3,62 @@
 @import "highlight.js/styles/github-dark.css";
 
 :root {
-  --bg: #080b14;
-  --surface: #0d1117;
-  --surface-2: #161b25;
-  --border: #1e2a3a;
-  --neon-blue: #00d4ff;
-  --neon-purple: #7c3aed;
-  --neon-green: #00ff88;
-  --neon-red: #ff3864;
-  --neon-yellow: #ffd700;
-  --text: #e2e8f0;
-  --text-muted: #64748b;
+  /* ─── Liquid Glass tokens (Apple dark Sonoma) ─────────────────── */
+  /* Backgrounds (deep → surface) */
+  --bg-deep:     #0a0e17;            /* fundo absoluto */
+  --bg-base:     #0f1420;            /* surface 1 */
+  --bg-raised:   #131a26;            /* surface 2 (cards) */
+  --bg-elevated: #1a2230;            /* surface 3 (modals, hover) */
+
+  /* Glass surfaces */
+  --glass-bg:           rgba(20, 22, 28, 0.55);
+  --glass-bg-strong:    rgba(20, 22, 28, 0.72);
+  --glass-bg-modal:     rgba(20, 22, 28, 0.85);
+  --glass-border:       1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-strong: 1px solid rgba(255, 255, 255, 0.12);
+  --glass-blur:         blur(20px) saturate(180%);
+  --glass-blur-strong:  blur(28px) saturate(200%);
+  --glass-shine:        linear-gradient(135deg, rgba(255,255,255,0.04), transparent 50%);
+  --glass-shadow:       0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+  --glass-shadow-modal: 0 24px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+
+  /* Accent (Apple system blue, mais sutil que cyan matrix) */
+  --accent:        #5ac8fa;          /* system blue Apple */
+  --accent-bright: #7dd9fc;
+  --accent-glow:   rgba(90, 200, 250, 0.4);
+  --accent-soft:   rgba(90, 200, 250, 0.12);
+
+  /* Status colors (coerente com Streamlit dashboard) */
+  --status-success: #22c55e;
+  --status-warning: #eab308;
+  --status-error:   #ef4444;
+  --status-info:    #5ac8fa;
+
+  /* Text hierarchy */
+  --text-primary:   rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.65);
+  --text-tertiary:  rgba(255,255,255,0.40);
+  --text-disabled:  rgba(255,255,255,0.25);
+
+  /* Spacing & radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* ─── Aliases legacy (compat com código antigo) ─────────────────
+     Mantidos enquanto a Task 17 progride. Apontam para os tokens novos. */
+  --bg:         var(--bg-deep);
+  --surface:    var(--bg-base);
+  --surface-2:  var(--bg-raised);
+  --border:     rgba(255, 255, 255, 0.08);
+  --neon-blue:  var(--accent);
+  --neon-purple: #a78bfa;
+  --neon-green: var(--status-success);
+  --neon-red:   var(--status-error);
+  --neon-yellow: var(--status-warning);
+  --text:       var(--text-primary);
+  --text-muted: var(--text-tertiary);
 }
 
 * {
@@ -22,53 +67,111 @@
 
 html,
 body {
-  background-color: var(--bg);
-  color: var(--text);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
 }
 
-/* Scrollbar dark */
+/* ─── Scrollbar dark ───────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neon-blue);
+  background: var(--accent-soft);
 }
 
-/* Glow utilities */
-.glow-blue {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+/* ─── Liquid Glass utility classes ─────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  position: relative;
 }
-.glow-blue:hover {
-  box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
-}
-.glow-green {
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
-}
-.glow-purple {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-shine);
+  pointer-events: none;
+  opacity: 0.6;
 }
 
-/* Card base */
+.glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: var(--glass-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+}
+.glass-strong::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-shine);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.glass-modal {
+  background: var(--glass-bg-modal);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: var(--glass-border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow-modal);
+  position: relative;
+}
+.glass-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-shine);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Hover lift — usar em cards interativos */
+.glass-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.glass-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* ─── Card legacy (compat) ─────────────────────────────────────── */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 .card:hover {
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 24px rgba(0, 212, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 @keyframes pulse {
@@ -81,14 +184,14 @@ body {
   }
 }
 
-/* Estilização markdown renderizado nas Notas */
+/* ─── Markdown renderizado nas Notas ───────────────────────────── */
 .notes-markdown h1,
 .notes-markdown h2,
 .notes-markdown h3,
 .notes-markdown h4,
 .notes-markdown h5,
 .notes-markdown h6 {
-  color: var(--text);
+  color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 1.2em 0 0.5em;
@@ -96,25 +199,25 @@ body {
 }
 .notes-markdown h1 {
   font-size: 1.6em;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 0.3em;
-  color: var(--neon-blue);
+  color: var(--accent);
 }
 .notes-markdown h2 {
   font-size: 1.35em;
-  color: var(--neon-blue);
+  color: var(--accent);
 }
 .notes-markdown h3 {
   font-size: 1.15em;
-  color: var(--neon-green);
+  color: var(--status-success);
 }
 .notes-markdown h4 {
   font-size: 1em;
-  color: var(--neon-purple);
+  color: #a78bfa;
 }
 .notes-markdown p {
   margin: 0.6em 0;
-  color: var(--text);
+  color: var(--text-primary);
 }
 .notes-markdown ul,
 .notes-markdown ol {
@@ -125,12 +228,12 @@ body {
   margin: 0.25em 0;
 }
 .notes-markdown a {
-  color: var(--neon-blue);
+  color: var(--accent);
   text-decoration: underline;
-  text-decoration-color: rgba(0, 212, 255, 0.35);
+  text-decoration-color: rgba(90, 200, 250, 0.35);
 }
 .notes-markdown a:hover {
-  text-decoration-color: var(--neon-blue);
+  text-decoration-color: var(--accent);
 }
 .notes-markdown code {
   font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -139,7 +242,7 @@ body {
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--neon-green);
+  color: var(--accent-bright);
 }
 .notes-markdown pre {
   background: rgba(0, 0, 0, 0.55) !important;
@@ -153,15 +256,15 @@ body {
   background: transparent;
   padding: 0;
   border: none;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.85em;
 }
 .notes-markdown blockquote {
-  border-left: 3px solid var(--neon-purple);
-  background: rgba(124, 58, 237, 0.05);
+  border-left: 3px solid #a78bfa;
+  background: rgba(167, 139, 250, 0.05);
   margin: 0.8em 0;
   padding: 6px 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border-radius: 0 6px 6px 0;
 }
 .notes-markdown table {
@@ -172,26 +275,26 @@ body {
 }
 .notes-markdown th,
 .notes-markdown td {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 6px 12px;
   text-align: left;
 }
 .notes-markdown th {
-  background: rgba(0, 212, 255, 0.06);
-  color: var(--neon-blue);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: 700;
 }
 .notes-markdown hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin: 1.2em 0;
 }
 .notes-markdown input[type="checkbox"] {
-  accent-color: var(--neon-green);
+  accent-color: var(--accent);
   margin-right: 6px;
 }
 .notes-markdown img {
   max-width: 100%;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }

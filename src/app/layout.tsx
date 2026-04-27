@@ -16,8 +16,8 @@ export default function RootLayout({
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <body
         style={{
-          backgroundColor: "var(--bg)",
-          color: "var(--text)",
+          backgroundColor: "var(--bg-deep)",
+          color: "var(--text-primary)",
           minHeight: "100vh",
         }}
       >
@@ -27,9 +27,11 @@ export default function RootLayout({
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "#0d1117",
-              border: "1px solid rgba(0,212,255,0.2)",
-              color: "#e2e8f0",
+              background: "rgba(20, 22, 28, 0.85)",
+              backdropFilter: "blur(28px) saturate(180%)",
+              WebkitBackdropFilter: "blur(28px) saturate(180%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "var(--text-primary)",
               fontFamily: '"JetBrains Mono", monospace',
               fontSize: 13,
             },
