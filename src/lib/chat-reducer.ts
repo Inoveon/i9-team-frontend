@@ -17,7 +17,7 @@
  *   - Sliding window de `MAX_EVENTS` — ao exceder, descarta a cabeça
  *     e rebuilda `byKey` (custo O(N), amortizado raro).
  *
- * Testado manualmente em http://10.0.10.17:4021 contra backend atual.
+ * Testado manualmente em http://10.0.10.17:4721 contra backend atual.
  */
 
 import type { ChatState, StreamEvent } from "./chat-types";

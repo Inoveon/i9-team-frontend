@@ -104,8 +104,8 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
             style={{
               padding: "6px 14px",
               borderRadius: 6,
-              border: "1px solid rgba(0,212,255,0.4)",
-              background: "rgba(0,212,255,0.06)",
+              border: "1px solid rgba(90, 200, 250, 0.4)",
+              background: "rgba(90, 200, 250, 0.06)",
               color: "var(--neon-blue)",
               fontSize: 11,
               fontWeight: 700,
@@ -116,7 +116,7 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
               transition: "all 0.15s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "0 0 14px rgba(0,212,255,0.25)";
+              e.currentTarget.style.boxShadow = "0 0 14px rgba(90, 200, 250, 0.25)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = "none";

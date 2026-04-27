@@ -1,18 +1,50 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { AgentPanel } from "@/components/AgentPanel";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bot, NotebookText } from "lucide-react";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+  type ImperativePanelGroupHandle,
+} from "react-resizable-panels";
 import { AgentView } from "@/components/AgentView";
-import { StatusBadge } from "@/components/StatusBadge";
+import { AgentCard } from "@/components/AgentCard";
 import { NotesPanel } from "@/components/notes/NotesPanel";
 import { useTeamStore } from "@/lib/store";
 import { api } from "@/lib/api";
+import {
+  useAgentsLayout,
+  type AgentsLayoutMode,
+} from "@/hooks/useAgentsLayout";
 import type { Team } from "@/types";
 
 type PageTab = "agents" | "notes";
+
+// localStorage keys
+const LS_LAYOUT_MODE = "portal-agents-layout-mode";
+const LS_SELECTED_IDS = "portal-agents-selected";
+
+function loadLayoutMode(): AgentsLayoutMode {
+  if (typeof window === "undefined") return "auto";
+  const v = window.localStorage.getItem(LS_LAYOUT_MODE);
+  return v === "horiz" || v === "vert" || v === "auto" ? v : "auto";
+}
+
+function loadSelectedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const arr = JSON.parse(
+      window.localStorage.getItem(LS_SELECTED_IDS) ?? "[]"
+    );
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
 
 export default function TeamPage() {
   const params = useParams<{ project: string; team: string }>();
@@ -20,8 +52,39 @@ export default function TeamPage() {
   const router = useRouter();
   const { activeTeam, setActiveTeam } = useTeamStore();
 
-  const initialTab: PageTab = searchParams.get("tab") === "notes" ? "notes" : "agents";
+  const initialTab: PageTab =
+    searchParams.get("tab") === "notes" ? "notes" : "agents";
   const [pageTab, setPageTab] = useState<PageTab>(initialTab);
+
+  // Splitter
+  const groupRef = useRef<ImperativePanelGroupHandle>(null);
+  const [layout, setLayout] = useState<number[]>([50, 50]);
+
+  // Layout do grid de workers (Auto / Horiz / Vert) — persistido
+  const [layoutMode, setLayoutMode] = useState<AgentsLayoutMode>(loadLayoutMode);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_LAYOUT_MODE, layoutMode);
+  }, [layoutMode]);
+
+  // Multi-select de workers — persistido
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(loadSelectedIds);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      LS_SELECTED_IDS,
+      JSON.stringify(Array.from(selectedIds))
+    );
+  }, [selectedIds]);
+
+  const toggleAgent = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const changeTab = useCallback(
     (next: PageTab) => {
@@ -29,7 +92,6 @@ export default function TeamPage() {
       const current = new URLSearchParams(searchParams.toString());
       if (next === "notes") current.set("tab", "notes");
       else current.delete("tab");
-      // Limpa ?note= se saindo de notas
       if (next !== "notes") current.delete("note");
       const qs = current.toString();
       const url = qs ? `?${qs}` : window.location.pathname;
@@ -51,52 +113,68 @@ export default function TeamPage() {
 
   useEffect(() => {
     void fetchTeam();
-    // Polling só faz sentido na aba de agentes (evita refresh em cima do editor)
     if (pageTab !== "agents") return;
     const interval = setInterval(() => void fetchTeam(), 5000);
     return () => clearInterval(interval);
   }, [fetchTeam, pageTab]);
 
-  const orchestrator = activeTeam?.agents.find((a) => a.role === "orchestrator");
-  const workers = activeTeam?.agents.filter((a) => a.role === "worker") ?? [];
-  const [selectedWorkerIdx, setSelectedWorkerIdx] = useState(0);
-  const selectedWorker = workers[selectedWorkerIdx] ?? null;
+  const orchestrator = activeTeam?.agents.find(
+    (a) => a.role === "orchestrator"
+  );
+  const workers = useMemo(
+    () => activeTeam?.agents.filter((a) => a.role === "worker") ?? [],
+    [activeTeam]
+  );
 
-  /**
-   * Envia mensagem ao agente.
-   *
-   * Onda 1 — Fix F7: aceita `agentIdOverride` opcional (worker alvo).
-   * Onda 5 — aceita `opts.attachmentIds` (UUIDs pré-uploadados em
-   *   POST /upload/image?teamId=<id>). O backend (Onda 5) valida e
-   *   injeta as imagens no tmux.
-   */
+  // Limpa seleção de IDs que não existem mais no team atual
+  useEffect(() => {
+    if (workers.length === 0) return;
+    const validIds = new Set(workers.map((w) => w.id));
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const id of prev) {
+        if (!validIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [workers]);
+
+  const selectedWorkers = useMemo(
+    () => workers.filter((w) => selectedIds.has(w.id)),
+    [workers, selectedIds]
+  );
+
+  // Container ref pra medir aspect (modo auto)
+  const terminalsContainerRef = useRef<HTMLDivElement>(null);
+  const gridLayout = useAgentsLayout(
+    selectedWorkers.length,
+    layoutMode,
+    terminalsContainerRef
+  );
+
+  /** Envia mensagem ao agente. */
   const handleSendMessage = async (
     message: string,
     agentIdOverride?: string,
     opts?: { attachmentIds?: string[] }
   ) => {
     if (!activeTeam) {
-      console.warn("[TeamPage] handleSendMessage abortado — activeTeam ausente", { message });
       throw new Error("Team ainda não carregado — aguarde.");
     }
-
     const targetAgent = agentIdOverride
       ? activeTeam.agents.find((a) => a.id === agentIdOverride)
       : orchestrator;
-
     if (!targetAgent) {
-      console.warn("[TeamPage] handleSendMessage abortado — agente destino ausente", {
-        teamId: activeTeam.id,
-        agentIdOverride,
-        message,
-      });
       throw new Error(
         agentIdOverride
           ? "Agente destinatário não encontrado neste team."
           : "Nenhum orquestrador configurado neste team."
       );
     }
-
     const attachmentIds = opts?.attachmentIds;
     const payload: {
       agentId: string;
@@ -106,25 +184,52 @@ export default function TeamPage() {
     if (attachmentIds && attachmentIds.length > 0) {
       payload.attachmentIds = attachmentIds;
     }
-
     console.log("[TeamPage] POST /teams/:id/message", {
       teamId: activeTeam.id,
       agentName: targetAgent.name,
-      agentRole: targetAgent.role,
       bytes: message.length,
       attachments: attachmentIds?.length ?? 0,
     });
     try {
-      const resp = await api.post<{ ok: boolean; session: string; agent: string }>(
-        `/teams/${activeTeam.id}/message`,
-        payload
-      );
-      console.log("[TeamPage] POST /message OK", resp);
+      await api.post(`/teams/${activeTeam.id}/message`, payload);
     } catch (err) {
       console.error("[TeamPage] POST /message FAIL", err);
       throw err;
     }
   };
+
+  // Snap programático
+  const snapTo = useCallback((sizes: [number, number]) => {
+    groupRef.current?.setLayout(sizes);
+    setLayout(sizes);
+  }, []);
+
+  useEffect(() => {
+    if (pageTab !== "agents") return;
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "1") {
+        e.preventDefault();
+        snapTo([25, 75]);
+      } else if (e.key === "2") {
+        e.preventDefault();
+        snapTo([50, 50]);
+      } else if (e.key === "3") {
+        e.preventDefault();
+        snapTo([75, 25]);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pageTab, snapTo]);
+
+  const snapLabel = (() => {
+    const a = Math.round(layout[0] ?? 50);
+    if (a >= 70) return "75/25";
+    if (a <= 30) return "25/75";
+    if (a >= 45 && a <= 55) return "50/50";
+    return `${a}/${100 - a}`;
+  })();
 
   return (
     <div
@@ -136,17 +241,22 @@ export default function TeamPage() {
         overflow: "hidden",
       }}
     >
-      {/* ── HEADER (nav + título + tabs) — flexShrink:0 ───────────────── */}
-      {/* Nav */}
+      {/* ── HEADER ───────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24, flexShrink: 0 }}>
         <Link
           href="/"
-          style={{ fontSize: 13, color: "var(--text-muted)", textDecoration: "none" }}
+          style={{
+            fontSize: 13,
+            color: "var(--text-tertiary)",
+            textDecoration: "none",
+          }}
         >
           Dashboard
         </Link>
-        <span style={{ color: "var(--border)", margin: "0 8px" }}>/</span>
-        <span style={{ fontSize: 13, color: "var(--neon-blue)" }}>
+        <span style={{ color: "rgba(255,255,255,0.08)", margin: "0 8px" }}>
+          /
+        </span>
+        <span style={{ fontSize: 13, color: "var(--accent)" }}>
           {params.project} / {params.team}
         </span>
       </div>
@@ -157,7 +267,7 @@ export default function TeamPage() {
         style={{
           fontSize: 24,
           fontWeight: 800,
-          color: "var(--text)",
+          color: "var(--text-primary)",
           marginBottom: 16,
           letterSpacing: "-0.02em",
           flexShrink: 0,
@@ -166,7 +276,7 @@ export default function TeamPage() {
         {activeTeam?.name ?? `${params.project}/${params.team}`}
       </motion.h1>
 
-      {/* Tabs da página (Agentes / Notas) */}
+      {/* Tabs página */}
       <div
         style={{
           display: "flex",
@@ -178,11 +288,16 @@ export default function TeamPage() {
       >
         {(
           [
-            { key: "agents", label: "Agentes", icon: "▸" },
-            { key: "notes", label: "Notas", icon: "📄" },
-          ] as { key: PageTab; label: string; icon: string }[]
+            { key: "agents", label: "Agentes", Icon: Bot },
+            { key: "notes", label: "Notas", Icon: NotebookText },
+          ] as {
+            key: PageTab;
+            label: string;
+            Icon: typeof Bot;
+          }[]
         ).map((t) => {
           const isActive = pageTab === t.key;
+          const Icon = t.Icon;
           return (
             <button
               key={t.key}
@@ -194,12 +309,12 @@ export default function TeamPage() {
                 fontFamily: '"JetBrains Mono", monospace',
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                background: isActive ? "rgba(90, 200, 250, 0.06)" : "transparent",
+                background: isActive ? "var(--accent-soft)" : "transparent",
                 border: "none",
                 borderBottom: isActive
-                  ? "2px solid var(--neon-blue)"
+                  ? "2px solid var(--accent)"
                   : "2px solid transparent",
-                color: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.35)",
+                color: isActive ? "var(--accent)" : "rgba(255,255,255,0.35)",
                 cursor: "pointer",
                 transition: "all 0.15s",
                 display: "flex",
@@ -208,21 +323,21 @@ export default function TeamPage() {
                 marginBottom: -1,
               }}
             >
-              <span style={{ fontSize: 13 }}>{t.icon}</span>
+              <Icon size={14} aria-hidden="true" />
               {t.label}
             </button>
           );
         })}
       </div>
 
-      {/* ── CONTEÚDO — flex:1 ocupa restante do viewport ─────────────── */}
+      {/* ── CONTEÚDO ─────────────────────────────────────────────── */}
       {!activeTeam ? (
         <div
-          className="card"
+          className="glass"
           style={{
             padding: 48,
             textAlign: "center",
-            color: "var(--text-muted)",
+            color: "var(--text-tertiary)",
             flexShrink: 0,
           }}
         >
@@ -234,248 +349,308 @@ export default function TeamPage() {
         </div>
       ) : (
         <div
-          className="team-grid"
           style={{
-            display: "grid",
-            gridTemplateColumns: "60fr 40fr",
-            gap: 20,
-            alignItems: "stretch",
             flex: 1,
             minHeight: 0,
-            overflow: "hidden",
+            position: "relative",
+            display: "flex",
           }}
         >
-          {/* Orchestrator column */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-              height: "100%",
-            }}
+          <PanelGroup
+            ref={groupRef}
+            direction="horizontal"
+            autoSaveId="portal-split-position"
+            onLayout={(sizes) => setLayout(sizes)}
+            style={{ flex: 1, minHeight: 0 }}
           >
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                marginBottom: 12,
-                flexShrink: 0,
-              }}
-            >
-              Orquestrador
-            </p>
-            {orchestrator?.sessionId ? (
+            {/* ── Painel Orquestrador (100% altura) ────────────── */}
+            <Panel defaultSize={50} minSize={20} maxSize={80}>
               <div
-                className="card"
                 style={{
-                  padding: 12,
+                  height: "100%",
                   display: "flex",
                   flexDirection: "column",
-                  flex: 1,
                   minHeight: 0,
                 }}
               >
-                <div
+                <p
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 10,
+                    fontSize: 11,
+                    color: "var(--text-tertiary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    marginBottom: 12,
                     flexShrink: 0,
                   }}
                 >
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-purple)" }}>
-                    {orchestrator.name}
-                  </span>
-                  <StatusBadge status={orchestrator.status} size="sm" />
-                </div>
-                <AgentView
-                  session={orchestrator.sessionId}
-                  showInput
-                  teamId={activeTeam.id}
-                  onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
-                />
-              </div>
-            ) : orchestrator ? (
-              <AgentPanel
-                agent={orchestrator}
-                showInput
-                teamId={activeTeam.id}
-                onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
-              />
-            ) : (
-              <div
-                className="card"
-                style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}
-              >
-                Nenhum orquestrador configurado
-              </div>
-            )}
-          </div>
-
-          {/* Workers column */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              minHeight: 0,
-              height: "100%",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                flexShrink: 0,
-              }}
-            >
-              Agentes ({workers.length})
-            </p>
-
-            {workers.length === 0 ? (
-              <div className="card" style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}>
-                Nenhum agente worker
-              </div>
-            ) : (
-              <>
-                {/* Tabs de seleção — scroll horizontal se muitos agentes */}
-                <div style={{
-                  display: "flex",
-                  gap: 6,
-                  overflowX: "auto",
-                  paddingBottom: 4,
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "rgba(90, 200, 250, 0.2) transparent",
-                  flexShrink: 0,
-                }}>
-                  {workers.map((agent, idx) => {
-                    const isActive = idx === selectedWorkerIdx;
-                    return (
-                      <button
-                        key={agent.id}
-                        onClick={() => setSelectedWorkerIdx(idx)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "5px 12px",
-                          borderRadius: 8,
-                          border: isActive
-                            ? "1px solid rgba(90, 200, 250, 0.5)"
-                            : "1px solid rgba(255,255,255,0.06)",
-                          background: isActive
-                            ? "rgba(90, 200, 250, 0.08)"
-                            : "rgba(255,255,255,0.02)",
-                          color: isActive ? "var(--neon-blue)" : "var(--text-muted)",
-                          fontSize: 12,
-                          fontWeight: isActive ? 700 : 400,
-                          fontFamily: '"JetBrains Mono", monospace',
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                          transition: "all 0.15s",
-                          boxShadow: isActive ? "0 0 10px rgba(90, 200, 250, 0.15)" : "none",
-                        }}
-                      >
-                        <span style={{
-                          width: 6, height: 6, borderRadius: "50%",
-                          background: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.15)",
-                          flexShrink: 0,
-                        }} />
-                        {agent.name}
-                        <StatusBadge status={agent.status} size="sm" />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Painel do agente selecionado — flex:1 ocupa restante da coluna */}
-                {selectedWorker && (
-                  <motion.div
-                    key={selectedWorker.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
+                  Orquestrador
+                </p>
+                {orchestrator?.sessionId ? (
+                  <AgentView
+                    session={orchestrator.sessionId}
+                    showInput
+                    teamId={activeTeam.id}
+                    onSendMessage={(m, opts) =>
+                      handleSendMessage(m, undefined, opts)
+                    }
+                    agentName={orchestrator.name}
+                    agentRole="orchestrator"
+                    agentStatus={orchestrator.status}
+                  />
+                ) : (
+                  <div
+                    className="glass"
                     style={{
-                      flex: 1,
-                      minHeight: 0,
-                      display: "flex",
-                      flexDirection: "column",
+                      padding: 24,
+                      color: "var(--text-tertiary)",
+                      flexShrink: 0,
                     }}
                   >
-                    <div
-                      className="card"
+                    {orchestrator
+                      ? `Orquestrador "${orchestrator.name}" sem sessão ativa.`
+                      : "Nenhum orquestrador configurado"}
+                  </div>
+                )}
+              </div>
+            </Panel>
+
+            <PanelResizeHandle className="resize-handle" />
+
+            {/* ── Painel Workers (selector + toggle + grid) ─────── */}
+            <Panel defaultSize={50} minSize={20} maxSize={80}>
+              <div className="agents-pane">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexShrink: 0,
+                    padding: "0 4px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-tertiary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      margin: 0,
+                    }}
+                  >
+                    Agentes ({selectedIds.size}/{workers.length})
+                  </p>
+                  {workers.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedIds(
+                          selectedIds.size === workers.length
+                            ? new Set()
+                            : new Set(workers.map((w) => w.id))
+                        )
+                      }
                       style={{
-                        padding: 12,
-                        display: "flex",
-                        flexDirection: "column",
-                        flex: 1,
-                        minHeight: 0,
+                        fontSize: 10,
+                        padding: "2px 8px",
+                        background: "transparent",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        borderRadius: "var(--radius-sm)",
+                        color: "var(--text-tertiary)",
+                        cursor: "pointer",
+                        fontFamily: '"JetBrains Mono", monospace',
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "var(--text-secondary)";
+                        e.currentTarget.style.borderColor =
+                          "rgba(255,255,255,0.16)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--text-tertiary)";
+                        e.currentTarget.style.borderColor =
+                          "rgba(255,255,255,0.06)";
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 10,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-blue)" }}>
-                          {selectedWorker.name}
-                        </span>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 8 }}>
-                          worker
-                        </span>
-                        <StatusBadge status={selectedWorker.status} size="sm" />
-                      </div>
-                      {selectedWorker.sessionId ? (
-                        <AgentView
-                          session={selectedWorker.sessionId}
-                          showInput
-                          teamId={activeTeam.id}
-                          onSendMessage={(msg, opts) =>
-                            handleSendMessage(msg, selectedWorker.id, opts)
-                          }
+                      {selectedIds.size === workers.length
+                        ? "Limpar"
+                        : "Todos"}
+                    </button>
+                  )}
+                </div>
+
+                {workers.length === 0 ? (
+                  <div
+                    className="glass"
+                    style={{
+                      padding: 24,
+                      color: "var(--text-tertiary)",
+                      flexShrink: 0,
+                      margin: 4,
+                    }}
+                  >
+                    Nenhum agente worker
+                  </div>
+                ) : (
+                  <>
+                    {/* Selector de cards */}
+                    <div className="agents-selector">
+                      {workers.map((agent) => (
+                        <AgentCard
+                          key={agent.id}
+                          agent={agent}
+                          selected={selectedIds.has(agent.id)}
+                          onToggle={() => toggleAgent(agent.id)}
                         />
-                      ) : (
-                        <AgentPanel
-                          agent={selectedWorker}
-                          showInput
-                          teamId={activeTeam.id}
-                          onSendMessage={(msg, opts) =>
-                            handleSendMessage(msg, selectedWorker.id, opts)
-                          }
-                        />
+                      ))}
+                    </div>
+
+                    {/* Layout toggle */}
+                    <div className="layout-toggle">
+                      <span className="layout-toggle__label">Layout</span>
+                      {(
+                        [
+                          { mode: "auto" as const, icon: "🤖", label: "Auto" },
+                          {
+                            mode: "horiz" as const,
+                            icon: "⊞",
+                            label: "Horiz",
+                          },
+                          { mode: "vert" as const, icon: "⊟", label: "Vert" },
+                        ]
+                      ).map((opt) => (
+                        <button
+                          key={opt.mode}
+                          type="button"
+                          aria-pressed={layoutMode === opt.mode}
+                          onClick={() => setLayoutMode(opt.mode)}
+                          title={`Layout ${opt.label}`}
+                        >
+                          <span aria-hidden="true">{opt.icon}</span>
+                          {opt.label}
+                        </button>
+                      ))}
+                      {selectedWorkers.length > 0 && (
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            fontSize: 10,
+                            color: "var(--text-tertiary)",
+                            fontFamily: '"JetBrains Mono", monospace',
+                            letterSpacing: "0.06em",
+                          }}
+                        >
+                          {gridLayout.cols}×{gridLayout.rows}
+                        </span>
                       )}
                     </div>
-                  </motion.div>
+
+                    {/* Terminal grid (só selecionados) */}
+                    <div
+                      ref={terminalsContainerRef}
+                      className="agents-terminals"
+                      style={
+                        selectedWorkers.length > 0
+                          ? gridLayout.style
+                          : undefined
+                      }
+                    >
+                      {selectedWorkers.length === 0 ? (
+                        <div className="agents-empty glass">
+                          Clique em um ou mais agentes acima para abrir os
+                          terminais
+                        </div>
+                      ) : (
+                        <AnimatePresence mode="popLayout">
+                          {selectedWorkers.map((agent) => (
+                            <motion.div
+                              key={agent.id}
+                              layout
+                              initial={{ opacity: 0, scale: 0.96 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.96 }}
+                              transition={{
+                                duration: 0.22,
+                                ease: [0.25, 0.1, 0.25, 1],
+                              }}
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                minHeight: 0,
+                                minWidth: 0,
+                              }}
+                            >
+                              {agent.sessionId ? (
+                                <AgentView
+                                  session={agent.sessionId}
+                                  showInput
+                                  teamId={activeTeam.id}
+                                  onSendMessage={(msg, opts) =>
+                                    handleSendMessage(msg, agent.id, opts)
+                                  }
+                                  agentName={agent.name}
+                                  agentRole="worker"
+                                  agentStatus={agent.status}
+                                />
+                              ) : (
+                                <div
+                                  className="glass"
+                                  style={{
+                                    padding: 16,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
+                                    minHeight: 0,
+                                    flex: 1,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      color: "var(--accent)",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {agent.name}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      color: "var(--text-tertiary)",
+                                    }}
+                                  >
+                                    Sem sessão ativa
+                                  </span>
+                                </div>
+                              )}
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      )}
+                    </div>
+                  </>
                 )}
-              </>
-            )}
+              </div>
+            </Panel>
+          </PanelGroup>
+
+          {/* Snap indicator */}
+          <div
+            className="snap-indicator"
+            title="Atalhos: Ctrl/Cmd + 1 (25/75) · 2 (50/50) · 3 (75/25)"
+          >
+            <span>{snapLabel}</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <kbd>⌘1</kbd>
+            <kbd>⌘2</kbd>
+            <kbd>⌘3</kbd>
           </div>
         </div>
       )}
-
-      {/* ── Responsivo: em <900px vira coluna única empilhada ─────────── */}
-      <style jsx>{`
-        @media (max-width: 900px) {
-          :global(.team-grid) {
-            grid-template-columns: 1fr !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-          }
-          :global(.team-grid) > div {
-            min-height: 420px;
-          }
-        }
-      `}</style>
     </div>
   );
 }
