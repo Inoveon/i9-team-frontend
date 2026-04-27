@@ -1,15 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { StatusBadge } from "./StatusBadge";
 import type { Agent } from "@/types";
 
 /**
- * AgentCard — Card compacto de seleção de worker.
+ * AgentCard — Card compacto multi-select de worker.
  *
- * Usado no painel direito da TeamPage acima do grid de terminais.
- * Comportamento toggle (multi-select): clicar abre/fecha o terminal
- * do agente correspondente no grid de baixo.
+ * Issue #13:
+ *   - Nome completo (ellipsis SÓ se realmente passar de min-width 200px)
+ *   - Bullet colorido (🟢/⚫/🔴/🟡) substitui badge "RUNNING"
+ *   - Tooltip no hover com `${name} — ${status}`
  */
 
 export interface AgentCardProps {
@@ -18,7 +18,15 @@ export interface AgentCardProps {
   onToggle: () => void;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  running: "Running",
+  idle: "Idle",
+  stopped: "Stopped",
+  error: "Error",
+};
+
 export function AgentCard({ agent, selected, onToggle }: AgentCardProps) {
+  const statusLabel = STATUS_LABELS[agent.status] ?? agent.status;
   return (
     <motion.button
       type="button"
@@ -30,18 +38,13 @@ export function AgentCard({ agent, selected, onToggle }: AgentCardProps) {
       className={
         "agent-card glass" + (selected ? " agent-card--selected" : "")
       }
-      title={
-        selected
-          ? `Clique para fechar ${agent.name}`
-          : `Clique para abrir ${agent.name}`
-      }
+      title={`${agent.name} — ${statusLabel}`}
     >
-      <div className="agent-card__row">
-        <span className="agent-card__name" title={agent.name}>
-          {agent.name}
-        </span>
-        <StatusBadge status={agent.status} size="sm" />
-      </div>
+      <span className="agent-card__name">{agent.name}</span>
+      <span
+        className={`agent-card__status-dot agent-card__status-dot--${agent.status}`}
+        aria-label={statusLabel}
+      />
       {selected && <span className="agent-card__indicator" aria-hidden="true" />}
     </motion.button>
   );

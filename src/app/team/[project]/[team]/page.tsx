@@ -4,7 +4,7 @@ import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, NotebookText } from "lucide-react";
+import { Bot, NotebookText, Sparkles, Columns2, Rows2 } from "lucide-react";
 import {
   Panel,
   PanelGroup,
@@ -511,26 +511,41 @@ export default function TeamPage() {
                       <span className="layout-toggle__label">Layout</span>
                       {(
                         [
-                          { mode: "auto" as const, icon: "🤖", label: "Auto" },
+                          {
+                            mode: "auto" as const,
+                            Icon: Sparkles,
+                            label: "Auto",
+                          },
                           {
                             mode: "horiz" as const,
-                            icon: "⊞",
+                            Icon: Columns2,
                             label: "Horiz",
                           },
-                          { mode: "vert" as const, icon: "⊟", label: "Vert" },
-                        ]
-                      ).map((opt) => (
-                        <button
-                          key={opt.mode}
-                          type="button"
-                          aria-pressed={layoutMode === opt.mode}
-                          onClick={() => setLayoutMode(opt.mode)}
-                          title={`Layout ${opt.label}`}
-                        >
-                          <span aria-hidden="true">{opt.icon}</span>
-                          {opt.label}
-                        </button>
-                      ))}
+                          {
+                            mode: "vert" as const,
+                            Icon: Rows2,
+                            label: "Vert",
+                          },
+                        ] as {
+                          mode: AgentsLayoutMode;
+                          Icon: typeof Sparkles;
+                          label: string;
+                        }[]
+                      ).map((opt) => {
+                        const Icon = opt.Icon;
+                        return (
+                          <button
+                            key={opt.mode}
+                            type="button"
+                            aria-pressed={layoutMode === opt.mode}
+                            onClick={() => setLayoutMode(opt.mode)}
+                            title={`Layout ${opt.label}`}
+                          >
+                            <Icon size={12} aria-hidden="true" />
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                       {selectedWorkers.length > 0 && (
                         <span
                           style={{

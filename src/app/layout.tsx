@@ -1,10 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "i9 Team — Agent Dashboard",
-  description: "Maestri multi-agent orchestration dashboard",
+  description:
+    "Portal de gestão e monitoramento de teams de agentes Claude Code",
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: { url: "/icon-180.png", sizes: "180x180", type: "image/png" },
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "i9 Team",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0e17",
 };
 
 export default function RootLayout({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,6 +49,15 @@ export function MenuDialog({
 }: MenuDialogProps) {
   // Highlight local — começa no currentIndex do backend e responde a setas
   const [highlight, setHighlight] = useState<number>(currentIndex);
+
+  // Garante que o Portal renderiza no <body> (evita deslocamento por
+  // parents com transform/overflow — tipo PanelGroup/PanelResizeHandle).
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null
+  );
+  useEffect(() => {
+    setPortalContainer(document.body);
+  }, []);
 
   // Sync highlight quando o currentIndex do backend muda OU quando reabre
   useEffect(() => {
@@ -115,55 +125,60 @@ export function MenuDialog({
     >
       <AnimatePresence>
         {open && (
-          <Dialog.Portal forceMount>
-            {/* Backdrop com blur leve */}
+          <Dialog.Portal forceMount container={portalContainer ?? undefined}>
+            {/* Overlay = flex container que centraliza o Content.
+                Mais robusto contra parents com transform/overflow. */}
             <Dialog.Overlay asChild forceMount>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  background: "rgba(0,0,0,0.5)",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
-                  zIndex: 9998,
-                }}
-              />
-            </Dialog.Overlay>
-
-            {/* Painel central — usa className glass-modal (globals.css) */}
-            <Dialog.Content asChild forceMount>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 6 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 320,
-                  damping: 26,
-                  mass: 0.8,
-                }}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="menu-dialog-title"
-                className="glass-modal"
-                style={{
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  width: "min(440px, calc(100vw - 32px))",
-                  maxHeight: "min(78vh, 640px)",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  zIndex: 9999,
-                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                }}
+                style={
+                  {
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.5)",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
+                    zIndex: 9998,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 16,
+                  } as CSSProperties
+                }
               >
+                {/* Painel central — usa className glass-modal (globals.css) */}
+                <Dialog.Content asChild forceMount>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 6 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 320,
+                      damping: 26,
+                      mass: 0.8,
+                    }}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="menu-dialog-title"
+                    className="glass-modal"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "relative",
+                      width: "min(440px, 100%)",
+                      maxWidth: "100%",
+                      maxHeight: "min(78vh, 640px)",
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      zIndex: 9999,
+                      fontFamily:
+                        '"JetBrains Mono", "Fira Code", monospace',
+                    }}
+                  >
                 {/* Header */}
                 <div
                   style={{
@@ -336,8 +351,10 @@ export function MenuDialog({
                   <Hint k="Enter">confirma</Hint>
                   <Hint k="Esc">cancela</Hint>
                 </div>
+                  </motion.div>
+                </Dialog.Content>
               </motion.div>
-            </Dialog.Content>
+            </Dialog.Overlay>
           </Dialog.Portal>
         )}
       </AnimatePresence>

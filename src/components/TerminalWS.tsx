@@ -10,6 +10,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import TextareaAutosize from "react-textarea-autosize";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowDown } from "lucide-react";
 import { getAuthToken } from "@/lib/api";
 import { getWsBase } from "@/lib/runtime-config";
 import { useAttachment } from "@/hooks/useAttachment";
@@ -87,6 +89,14 @@ export function Terminal({
   const [wsState, setWsState] = useState<WSState>("connecting");
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const lastOutputAtRef = useRef<number>(0);
+
+  // ── Scroll-to-bottom FAB (Issue #12) ────────────────────────────────
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const scrollTerminalToBottom = useCallback(() => {
+    termRef.current?.scrollToBottom();
+    setShowScrollBottom(false);
+  }, []);
 
   // ── Attachments ──────────────────────────────────────────────────────
   const {
@@ -167,6 +177,28 @@ export function Terminal({
       const observer = new ResizeObserver(() => fitAddon.fit());
       observer.observe(containerRef.current);
       cleanupObserver = () => observer.disconnect();
+
+      // Issue #12: detecta scroll-up e mostra FAB pra voltar ao fim.
+      // Threshold 80px — distância do bottom pra considerar "lá em cima".
+      const viewport = term.element?.querySelector(
+        ".xterm-viewport"
+      ) as HTMLDivElement | null;
+      let scrollListener: (() => void) | undefined;
+      if (viewport) {
+        scrollListener = () => {
+          const distance =
+            viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+          setShowScrollBottom(distance > 80);
+        };
+        viewport.addEventListener("scroll", scrollListener, { passive: true });
+        const prevCleanup = cleanupObserver;
+        cleanupObserver = () => {
+          prevCleanup?.();
+          if (scrollListener) {
+            viewport.removeEventListener("scroll", scrollListener);
+          }
+        };
+      }
 
       // WebSocket — token via query param (browser não suporta headers em WS)
       let token = "";
@@ -427,6 +459,29 @@ export function Terminal({
           }}
         />
 
+        {/* FAB scroll-to-bottom (Issue #12) — aparece quando user rola pra cima */}
+        <AnimatePresence>
+          {showScrollBottom && (
+            <motion.button
+              type="button"
+              key="scroll-bottom-fab"
+              className="terminal-fab"
+              onClick={scrollTerminalToBottom}
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.9 }}
+              transition={{
+                type: "spring",
+                stiffness: 380,
+                damping: 28,
+              }}
+              title="Rolar para o fim"
+              aria-label="Rolar para o fim do terminal"
+            >
+              <ArrowDown size={16} aria-hidden="true" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Modal Liquid Glass de menu interativo (Task 16). Renderizado via Portal,

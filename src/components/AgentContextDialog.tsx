@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, RefreshCw, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import matter from "gray-matter";
+import {
+  ContextFrontmatter,
+  type AgentFrontmatter,
+} from "./ContextFrontmatter";
 import { api } from "@/lib/api";
 
 /**
@@ -43,6 +48,15 @@ export function AgentContextDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Garante que o Portal renderiza no <body> — não dentro do PanelGroup.
+  // Sem isso, parents com transform/overflow podem deslocar o modal.
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null
+  );
+  useEffect(() => {
+    setPortalContainer(document.body);
+  }, []);
+
   const load = useCallback(async () => {
     if (!teamId || !agentName) return;
     setLoading(true);
@@ -77,6 +91,26 @@ export function AgentContextDialog({
     if (open) void load();
   }, [open, load]);
 
+  // Parse YAML frontmatter (Issue #14): separa metadados do body markdown.
+  const { frontmatter, body } = useMemo<{
+    frontmatter: AgentFrontmatter | null;
+    body: string;
+  }>(() => {
+    if (!markdown) return { frontmatter: null, body: "" };
+    try {
+      const parsed = matter(markdown);
+      const fm = parsed.data as AgentFrontmatter;
+      // Considera "tem frontmatter" se gray-matter extraiu pelo menos 1 chave
+      const hasFm = fm && Object.keys(fm).length > 0;
+      return {
+        frontmatter: hasFm ? fm : null,
+        body: parsed.content ?? markdown,
+      };
+    } catch {
+      return { frontmatter: null, body: markdown };
+    }
+  }, [markdown]);
+
   return (
     <Dialog.Root
       open={open}
@@ -86,7 +120,7 @@ export function AgentContextDialog({
     >
       <AnimatePresence>
         {open && (
-          <Dialog.Portal forceMount>
+          <Dialog.Portal forceMount container={portalContainer ?? undefined}>
             <Dialog.Overlay asChild forceMount>
               <motion.div
                 className="dialog-overlay"
@@ -94,22 +128,22 @@ export function AgentContextDialog({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-              />
-            </Dialog.Overlay>
-            <Dialog.Content asChild forceMount>
-              <motion.div
-                className="dialog-content glass-modal"
-                initial={{ opacity: 0, scale: 0.96, y: 14 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 8 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 320,
-                  damping: 28,
-                  mass: 0.8,
-                }}
-                aria-describedby={undefined}
               >
+                <Dialog.Content asChild forceMount>
+                  <motion.div
+                    className="dialog-content dialog-content--wide glass-modal"
+                    initial={{ opacity: 0, scale: 0.96, y: 14 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 320,
+                      damping: 28,
+                      mass: 0.8,
+                    }}
+                    aria-describedby={undefined}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                 <div className="dialog-header">
                   <Dialog.Title asChild>
                     <p className="dialog-title">
@@ -155,7 +189,7 @@ export function AgentContextDialog({
                     </Dialog.Close>
                   </div>
                 </div>
-                <div className="dialog-body markdown-body">
+                <div className="dialog-body">
                   {loading && !markdown && (
                     <div className="dialog-empty">Carregando contexto…</div>
                   )}
@@ -163,9 +197,14 @@ export function AgentContextDialog({
                     <div className="dialog-empty">{error}</div>
                   )}
                   {!error && markdown && (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {markdown}
-                    </ReactMarkdown>
+                    <>
+                      {frontmatter && <ContextFrontmatter fm={frontmatter} />}
+                      <div className="markdown-body">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {body}
+                        </ReactMarkdown>
+                      </div>
+                    </>
                   )}
                 </div>
                 {lastUpdate && !error && (
@@ -180,8 +219,10 @@ export function AgentContextDialog({
                     })()}
                   </div>
                 )}
+                  </motion.div>
+                </Dialog.Content>
               </motion.div>
-            </Dialog.Content>
+            </Dialog.Overlay>
           </Dialog.Portal>
         )}
       </AnimatePresence>
