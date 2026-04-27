@@ -8,7 +8,7 @@ import type { Agent } from "@/types";
  *
  * Issue #13:
  *   - Nome completo (ellipsis SÓ se realmente passar de min-width 200px)
- *   - Bullet colorido (🟢/⚫/🔴/🟡) substitui badge "RUNNING"
+ *   - Bullet colorido (verde/cinza/vermelho/amarelo) substitui badge "RUNNING"
  *   - Tooltip no hover com `${name} — ${status}`
  */
 

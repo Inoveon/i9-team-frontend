@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -46,7 +47,7 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span style={{ fontSize: 18 }}>📄</span>
+          <FileText size={16} aria-hidden="true" style={{ color: "var(--accent)" }} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{

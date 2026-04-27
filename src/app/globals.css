@@ -944,6 +944,82 @@ body > div {
   color: var(--status-warning);
 }
 
+/* ─── Terminal status bar dot + nav + mode toggle ──────────────── */
+.status-dot--open {
+  color: var(--status-success);
+}
+.status-dot--connecting {
+  color: var(--status-warning);
+}
+.status-dot--closed,
+.status-dot--closing {
+  color: var(--status-error);
+}
+
+.terminal-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.nav-btn {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s,
+    transform 0.08s;
+}
+.nav-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.nav-btn:active {
+  transform: scale(0.92);
+}
+
+.terminal-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s,
+    box-shadow 0.2s;
+}
+.terminal-mode-btn:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+}
+.terminal-mode-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(90, 200, 250, 0.55);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* Input bar disabled visualmente quando Terminal Mode ON */
+.input-bar.disabled-by-terminal-mode {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: saturate(0.6);
+}
+
 /* ─── Terminal FAB scroll-to-bottom (Issue #12) ────────────────── */
 .terminal-fab {
   position: absolute;

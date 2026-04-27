@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, RefreshCw, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -144,25 +145,28 @@ export function AgentContextDialog({
                     aria-describedby={undefined}
                     onClick={(e) => e.stopPropagation()}
                   >
+                {/* Title acessível (Radix exige Dialog.Title — VisuallyHidden
+                    pra não duplicar visualmente o header abaixo) */}
+                <VisuallyHidden>
+                  <Dialog.Title>{`${agentName} — Contexto`}</Dialog.Title>
+                </VisuallyHidden>
                 <div className="dialog-header">
-                  <Dialog.Title asChild>
-                    <p className="dialog-title">
-                      <FileText size={14} aria-hidden="true" />
-                      <span
-                        style={{
-                          color: "var(--text-primary)",
-                          textTransform: "none",
-                          letterSpacing: 0,
-                          fontWeight: 700,
-                          fontSize: 14,
-                        }}
-                      >
-                        {agentName}
-                      </span>
-                      <span style={{ opacity: 0.5 }}>·</span>
-                      Contexto
-                    </p>
-                  </Dialog.Title>
+                  <p className="dialog-title">
+                    <FileText size={14} aria-hidden="true" />
+                    <span
+                      style={{
+                        color: "var(--text-primary)",
+                        textTransform: "none",
+                        letterSpacing: 0,
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+                      {agentName}
+                    </span>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    Contexto
+                  </p>
                   <div className="dialog-actions">
                     <button
                       type="button"

@@ -21,7 +21,7 @@ import type { AgentStatus } from "@/types";
  *   - nome + role + StatusBadge
  *   - botão ⟳ Refresh: força re-mount do <Terminal> (via `reconnectKey` na
  *     `key` prop) — fecha WS e reconecta sem F5.
- *   - botão 📄 Context: abre `AgentContextDialog` carregando o agent-context.md
+ *   - botão FileText (Context): abre `AgentContextDialog` carregando o agent-context.md
  *     do agente via REST.
  */
 

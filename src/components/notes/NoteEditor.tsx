@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -70,7 +71,7 @@ export function NoteEditor({ note, onSave, onCancel, saving }: NoteEditorProps) 
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span style={{ fontSize: 18 }}>✏️</span>
+          <Pencil size={16} aria-hidden="true" style={{ color: "#a78bfa" }} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { motion, AnimatePresence } from "framer-motion";
 
 /**
@@ -179,7 +180,13 @@ export function MenuDialog({
                         '"JetBrains Mono", "Fira Code", monospace',
                     }}
                   >
-                {/* Header */}
+                {/* Title acessível (Radix exige Dialog.Title — usa
+                    VisuallyHidden pra manter screen reader feliz sem
+                    duplicar visualmente o header abaixo) */}
+                <VisuallyHidden>
+                  <Dialog.Title>{title}</Dialog.Title>
+                </VisuallyHidden>
+                {/* Header visual */}
                 <div
                   style={{
                     position: "relative",
@@ -204,21 +211,19 @@ export function MenuDialog({
                   >
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
-                  <Dialog.Title asChild>
-                    <p
-                      id="menu-dialog-title"
-                      style={{
-                        margin: 0,
-                        fontSize: 11,
-                        color: ACCENT,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.14em",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {title}
-                    </p>
-                  </Dialog.Title>
+                  <p
+                    id="menu-dialog-title"
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      color: ACCENT,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.14em",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {title}
+                  </p>
                 </div>
 
                 {/* Lista de opções (scroll interno se passar do max-height) */}

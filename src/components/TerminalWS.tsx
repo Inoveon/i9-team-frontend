@@ -11,7 +11,18 @@ import {
 } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ChevronRight,
+  Circle,
+  CornerDownLeft,
+  Keyboard,
+  Paperclip,
+  X as XIcon,
+} from "lucide-react";
 import { getAuthToken } from "@/lib/api";
 import { getWsBase } from "@/lib/runtime-config";
 import { useAttachment } from "@/hooks/useAttachment";
@@ -23,6 +34,69 @@ import {
   extractFilesFromClipboard,
   type EventAttachment,
 } from "@/lib/chat-attachments";
+
+/**
+ * Mapeia `KeyboardEvent` do browser pra notação `tmux send-keys`.
+ *
+ * Formato tmux:
+ *   - Modificadores: `C-` (Ctrl), `M-` (Alt/Meta), `S-` (Shift) — combinam.
+ *   - Keys nomeadas: Up, Down, Left, Right, Enter, Escape, Tab, BSpace,
+ *     Delete, Home, End, PageUp, PageDown, Space.
+ *   - Letras simples: lowercase ('a', 'b', 'A' vira 'a' com S-? não — tmux
+ *     trata maiúscula como literal).
+ *
+ * Retorna `null` quando não dá pra mapear (Shift/Ctrl/Alt sozinhos, etc).
+ */
+// Alias pro KeyboardEvent nativo do DOM (`KeyboardEvent` de cima é o do React).
+type DOMKeyboardEvent = globalThis.KeyboardEvent;
+
+function mapEventToTmuxKey(e: DOMKeyboardEvent): string | null {
+  const k = e.key;
+
+  // Ignora modificadores sozinhos (apenas Shift, Ctrl, Alt, Meta apertados)
+  if (
+    k === "Shift" ||
+    k === "Control" ||
+    k === "Alt" ||
+    k === "Meta"
+  ) {
+    return null;
+  }
+
+  let prefix = "";
+  if (e.ctrlKey) prefix += "C-";
+  if (e.metaKey) prefix += "C-"; // Cmd no mac → trata como Ctrl
+  if (e.altKey) prefix += "M-";
+  // Shift só é prefixado pra teclas nomeadas (não-letras)
+  if (e.shiftKey && k.length > 1) prefix += "S-";
+
+  const namedMap: Record<string, string> = {
+    ArrowUp: "Up",
+    ArrowDown: "Down",
+    ArrowLeft: "Left",
+    ArrowRight: "Right",
+    Enter: "Enter",
+    Escape: "Escape",
+    Tab: "Tab",
+    Backspace: "BSpace",
+    Delete: "Delete",
+    Home: "Home",
+    End: "End",
+    PageUp: "PageUp",
+    PageDown: "PageDown",
+    " ": "Space",
+  };
+
+  if (namedMap[k]) return prefix + namedMap[k];
+
+  // Letra/número/símbolo simples (1 caractere)
+  if (k.length === 1) {
+    if (prefix) return prefix + k.toLowerCase();
+    return k; // sem mods: manda literal (preserva caso)
+  }
+
+  return null;
+}
 
 interface MenuOption {
   index: number;
@@ -97,6 +171,68 @@ export function Terminal({
     termRef.current?.scrollToBottom();
     setShowScrollBottom(false);
   }, []);
+
+  // ── Terminal Mode (Task `nav-buttons-terminal-mode`) ────────────────
+  // Quando ativo, captura todas as teclas no xterm e envia ao tmux como
+  // `key_event` via WS (em vez de processar localmente). Persiste por
+  // sessão no localStorage.
+  const tmKey = `portal-terminal-mode-${session}`;
+  const [terminalMode, setTerminalMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(tmKey) === "true";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(tmKey, String(terminalMode));
+  }, [terminalMode, tmKey]);
+
+  // Envia tecla nomeada (Up/Down/Enter/Escape/etc) via key_event.
+  // Backend traduz pra `tmux send-keys SESSION <key>`.
+  const sendKeyEvent = useCallback((key: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[TerminalWS] sendKeyEvent: WS não OPEN", { key });
+      return;
+    }
+    ws.send(JSON.stringify({ type: "key_event", key }));
+  }, []);
+
+  // Toggle stdin do xterm conforme Terminal Mode.
+  // Quando ativo, instala custom key handler que intercepta keydown e manda
+  // `key_event` via WS (em vez de deixar xterm processar localmente).
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+
+    if (terminalMode) {
+      // Permite stdin no xterm (default era disableStdin: true)
+      try {
+        term.options.disableStdin = false;
+      } catch {
+        /* algumas versões do xterm são read-only no options */
+      }
+      term.attachCustomKeyEventHandler((event) => {
+        if (event.type !== "keydown") return false;
+        const key = mapEventToTmuxKey(event);
+        if (key) sendKeyEvent(key);
+        return false; // xterm NÃO processa — já mandamos via WS
+      });
+      // Foco no xterm pra capturar teclas
+      try {
+        term.focus();
+      } catch {
+        /* noop */
+      }
+    } else {
+      // Restaura comportamento padrão (xterm processa tudo)
+      try {
+        term.options.disableStdin = true;
+      } catch {
+        /* noop */
+      }
+      term.attachCustomKeyEventHandler(() => true);
+    }
+  }, [terminalMode, sendKeyEvent]);
 
   // ── Attachments ──────────────────────────────────────────────────────
   const {
@@ -269,14 +405,19 @@ export function Terminal({
               }
               break;
             case "interactive_menu":
+              // Abertura automática do MenuDialog DESABILITADA por decisão
+              // de UX (2026-04-27). User prefere usar botões nav (← ↑ ↓ →
+              // ⏎ ✕) e Terminal Mode pra interagir manualmente. Mantemos o
+              // componente MenuDialog importado/montado pra reuso futuro
+              // (caso queira restaurar ou abrir manualmente).
               noMenuCountRef.current = 0;
               if (msg.options?.length) {
-                const m = {
-                  options: msg.options,
-                  currentIndex: msg.currentIndex ?? 1,
-                };
-                setMenu(m);
-                onMenuChange?.(session, m);
+                console.debug("[TerminalWS] interactive_menu detectado", {
+                  session,
+                  options: msg.options.length,
+                  currentIndex: msg.currentIndex,
+                });
+                // setMenu(m); onMenuChange?.(session, m);  // ← intencionalmente desativado
               }
               break;
           }
@@ -416,7 +557,6 @@ export function Terminal({
   };
 
   // ── Status bar derived values ───────────────────────────────────────
-  const wsDot = wsState === "open" ? "🟢" : wsState === "connecting" ? "🟡" : "🔴";
   const wsLabel = wsState.toUpperCase();
   const latencyLabel =
     latencyMs == null
@@ -562,6 +702,9 @@ export function Terminal({
               e.preventDefault();
               void handleSend();
             }}
+            className={
+              terminalMode ? "input-bar disabled-by-terminal-mode" : "input-bar"
+            }
             style={{
               display: "flex",
               gap: 8,
@@ -574,13 +717,13 @@ export function Terminal({
               style={{
                 color: "var(--accent)",
                 opacity: 0.7,
-                fontFamily: "monospace",
-                fontSize: 13,
+                display: "inline-flex",
+                alignItems: "center",
                 lineHeight: "32px",
                 flexShrink: 0,
               }}
             >
-              ❯
+              <ChevronRight size={14} strokeWidth={2.5} />
             </span>
 
             <TextareaAutosize
@@ -589,9 +732,13 @@ export function Terminal({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              disabled={sending}
+              disabled={sending || terminalMode}
               placeholder={
-                sending ? "enviando..." : "Enviar mensagem ao agente..."
+                terminalMode
+                  ? "Terminal Mode ativo — teclas vão direto pro tmux"
+                  : sending
+                    ? "enviando..."
+                    : "Enviar mensagem ao agente..."
               }
               aria-label="Mensagem para o agente"
               autoComplete="off"
@@ -627,7 +774,7 @@ export function Terminal({
               onChange={onFilePick}
             />
 
-            {/* Botão attach 📎 */}
+            {/* Botão attach (Paperclip) */}
             <button
               type="button"
               onClick={openFilePicker}
@@ -721,6 +868,7 @@ export function Terminal({
 
           {/* Status bar */}
           <div
+            className="terminal-statusbar"
             style={{
               display: "flex",
               alignItems: "center",
@@ -739,16 +887,22 @@ export function Terminal({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 4,
+                gap: 5,
               }}
             >
-              <span aria-hidden="true">{wsDot}</span>
+              <Circle
+                size={8}
+                fill="currentColor"
+                strokeWidth={0}
+                className={`status-dot status-dot--${wsState}`}
+                aria-hidden="true"
+              />
               <span>{wsLabel}</span>
             </span>
             <span aria-hidden="true" style={{ opacity: 0.4 }}>
               ·
             </span>
-            <span title="Latência do último ack">⟂ {latencyLabel}</span>
+            <span title="Latência do último ack">{latencyLabel}</span>
             <span aria-hidden="true" style={{ opacity: 0.4 }}>
               ·
             </span>
@@ -758,11 +912,87 @@ export function Terminal({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                maxWidth: "60%",
+                maxWidth: "40%",
               }}
             >
               {session}
             </span>
+
+            {/* Navegação rápida (sempre visível) — 6 botões: ← ↑ ↓ → ⏎ ✕ */}
+            <div className="terminal-nav">
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Left")}
+                title="Navegar para esquerda"
+                aria-label="Navegar para esquerda"
+              >
+                <ArrowLeft size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Up")}
+                title="Navegar para cima"
+                aria-label="Navegar para cima"
+              >
+                <ArrowUp size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Down")}
+                title="Navegar para baixo"
+                aria-label="Navegar para baixo"
+              >
+                <ArrowDown size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Right")}
+                title="Navegar para direita"
+                aria-label="Navegar para direita"
+              >
+                <ArrowRight size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Enter")}
+                title="Confirmar (Enter)"
+                aria-label="Enviar Enter"
+              >
+                <CornerDownLeft size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                onClick={() => sendKeyEvent("Escape")}
+                title="Cancelar (Esc)"
+                aria-label="Enviar Escape"
+              >
+                <XIcon size={13} aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Terminal Mode toggle */}
+            <button
+              type="button"
+              className={
+                "terminal-mode-btn" + (terminalMode ? " active" : "")
+              }
+              aria-pressed={terminalMode}
+              onClick={() => setTerminalMode((m) => !m)}
+              title={
+                terminalMode
+                  ? "Desativar Terminal Mode (volta pro input bar)"
+                  : "Ativar Terminal Mode (captura todas as teclas e envia ao tmux)"
+              }
+            >
+              <Keyboard size={13} aria-hidden="true" />
+              Terminal Mode
+            </button>
           </div>
         </div>
       )}
