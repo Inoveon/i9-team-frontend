@@ -370,7 +370,12 @@ export function Terminal({
       setDraft(msg);
     } finally {
       setSending(false);
-      textareaRef.current?.focus();
+      // requestAnimationFrame: aguarda o React re-renderizar e remover
+      // `disabled={sending}` do textarea — focus() em elemento disabled é
+      // ignorado pelos browsers e o cursor "perdia" o foco.
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
     }
   }, [
     canSend,
