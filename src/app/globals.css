@@ -3,17 +3,36 @@
 @import "highlight.js/styles/github-dark.css";
 
 :root {
-  --bg: #080b14;
-  --surface: #0d1117;
-  --surface-2: #161b25;
-  --border: #1e2a3a;
-  --neon-blue: #00d4ff;
-  --neon-purple: #7c3aed;
-  --neon-green: #00ff88;
-  --neon-red: #ff3864;
-  --neon-yellow: #ffd700;
-  --text: #e2e8f0;
-  --text-muted: #64748b;
+  /* Background */
+  --bg: #080808;
+
+  /* Glass surfaces */
+  --glass-surface-1: rgba(255, 255, 255, 0.03);
+  --glass-surface-2: rgba(255, 255, 255, 0.06);
+  --glass-surface-3: rgba(255, 255, 255, 0.09);
+
+  /* Glass borders */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --text-primary: #f0f0f0;
+  --text-secondary: rgba(240, 240, 240, 0.45);
+  --text-tertiary: rgba(240, 240, 240, 0.25);
+
+  /* Accent */
+  --accent: #e0e0e0;
+
+  /* States */
+  --error: #ff453a;
+  --warning: #ffd60a;
+
+  /* Legacy compat (used by existing components) */
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f0f0f0;
+  --text-muted: rgba(240, 240, 240, 0.45);
 }
 
 * {
@@ -23,57 +42,57 @@
 html,
 body {
   background-color: var(--bg);
-  color: var(--text);
+  color: var(--text-primary);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
 }
 
-/* Scrollbar dark */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neon-blue);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/* Glow utilities */
-.glow-blue {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
-}
-.glow-blue:hover {
-  box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
-}
-.glow-green {
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
-}
-.glow-purple {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+/* Liquid glass utility */
+.glass {
+  backdrop-filter: blur(32px) saturate(160%) brightness(1.1);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
-/* Card base */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  transition: border-color 0.2s, box-shadow 0.2s;
+/* Keyframes */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.35);
+  }
 }
-.card:hover {
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 24px rgba(0, 212, 255, 0.15);
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 @keyframes pulse {
-  0%,
-  100% {
+  0%, 100% {
     opacity: 0.45;
   }
   50% {
@@ -81,14 +100,54 @@ body {
   }
 }
 
-/* Estilização markdown renderizado nas Notas */
+/* Section label utility */
+.section-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+/* Shimmer gradient */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--glass-surface-1) 25%,
+    var(--glass-surface-3) 50%,
+    var(--glass-surface-1) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Status dot glow */
+.dot-online {
+  background-color: #ffffff;
+  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6);
+}
+
+.dot-working {
+  background-color: #ffffff;
+  animation: pulse-glow 1.4s ease-in-out infinite;
+}
+
+.dot-offline {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dot-error {
+  background-color: #ff453a;
+}
+
+/* Estilizacao markdown renderizado nas Notas */
 .notes-markdown h1,
 .notes-markdown h2,
 .notes-markdown h3,
 .notes-markdown h4,
 .notes-markdown h5,
 .notes-markdown h6 {
-  color: var(--text);
+  color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 1.2em 0 0.5em;
@@ -96,25 +155,23 @@ body {
 }
 .notes-markdown h1 {
   font-size: 1.6em;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
   padding-bottom: 0.3em;
-  color: var(--neon-blue);
 }
 .notes-markdown h2 {
   font-size: 1.35em;
-  color: var(--neon-blue);
 }
 .notes-markdown h3 {
   font-size: 1.15em;
-  color: var(--neon-green);
+  color: var(--accent);
 }
 .notes-markdown h4 {
   font-size: 1em;
-  color: var(--neon-purple);
+  color: var(--accent);
 }
 .notes-markdown p {
   margin: 0.6em 0;
-  color: var(--text);
+  color: var(--text-primary);
 }
 .notes-markdown ul,
 .notes-markdown ol {
@@ -125,12 +182,12 @@ body {
   margin: 0.25em 0;
 }
 .notes-markdown a {
-  color: var(--neon-blue);
+  color: var(--text-primary);
   text-decoration: underline;
-  text-decoration-color: rgba(0, 212, 255, 0.35);
+  text-decoration-color: rgba(240, 240, 240, 0.3);
 }
 .notes-markdown a:hover {
-  text-decoration-color: var(--neon-blue);
+  text-decoration-color: var(--text-primary);
 }
 .notes-markdown code {
   font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -138,14 +195,14 @@ body {
   background: rgba(0, 0, 0, 0.45);
   padding: 1px 6px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--neon-green);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--accent);
 }
 .notes-markdown pre {
   background: rgba(0, 0, 0, 0.55) !important;
   padding: 14px 16px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
   overflow-x: auto;
   margin: 0.8em 0;
 }
@@ -153,15 +210,15 @@ body {
   background: transparent;
   padding: 0;
   border: none;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.85em;
 }
 .notes-markdown blockquote {
-  border-left: 3px solid var(--neon-purple);
-  background: rgba(124, 58, 237, 0.05);
+  border-left: 3px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
   margin: 0.8em 0;
   padding: 6px 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border-radius: 0 6px 6px 0;
 }
 .notes-markdown table {
@@ -172,26 +229,15 @@ body {
 }
 .notes-markdown th,
 .notes-markdown td {
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   padding: 6px 12px;
   text-align: left;
 }
 .notes-markdown th {
-  background: rgba(0, 212, 255, 0.06);
-  color: var(--neon-blue);
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-weight: 600;
 }
-.notes-markdown hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 1.2em 0;
-}
-.notes-markdown input[type="checkbox"] {
-  accent-color: var(--neon-green);
-  margin-right: 6px;
-}
-.notes-markdown img {
-  max-width: 100%;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+.notes-markdown td {
+  color: var(--text-secondary);
 }

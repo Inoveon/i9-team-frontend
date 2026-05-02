@@ -1,17 +1,21 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { StatusBadge } from "./StatusBadge";
-import type { Team } from "@/types";
+import { RcDot } from "./ui/glass";
+import type { Team, RcStatus } from "@/types";
 
 interface TeamCardProps {
   team: Team;
   onStart: (teamId: string) => void;
   onStop: (teamId: string) => void;
+  /** Map keyed by "{project}/{team}/{agentName}" → RcStatus */
+  rcStatusMap?: Record<string, RcStatus>;
 }
 
-export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
+export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardProps) {
+  const router = useRouter();
   const isRunning = team.status === "running";
   const runningAgents = team.agents.filter((a) => a.status === "running").length;
 
@@ -22,10 +26,10 @@ export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
       whileHover={{ scale: 1.02, boxShadow: "0 0 24px rgba(0,212,255,0.15)" }}
       transition={{ duration: 0.2 }}
       className="card"
+      onClick={() => router.push(`/team/${team.project}/${team.name}`)}
       style={{ padding: "20px 24px", minWidth: 0, cursor: "pointer", position: "relative" }}
     >
       {/* Card inteiro clicável */}
-      <Link href={`/team/${team.project}/${team.name}`} style={{ position: "absolute", inset: 0, zIndex: 0 }} aria-label={team.name} />
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12, position: "relative", zIndex: 1 }}>
@@ -79,22 +83,32 @@ export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
 
       {/* Agent tags */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", position: "relative", zIndex: 1 }}>
-        {team.agents.map((agent) => (
-          <span
-            key={agent.id}
-            style={{
-              fontSize: 11,
-              padding: "3px 8px",
-              borderRadius: 6,
-              border: "1px solid var(--border)",
-              color: agent.status === "running" ? "var(--neon-green)" : "var(--text-muted)",
-              backgroundColor: "var(--surface-2)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {agent.name}
-          </span>
-        ))}
+        {team.agents.map((agent) => {
+          const rcKey = `${team.project}/${team.name}/${agent.name}`;
+          const rcStatus = rcStatusMap[rcKey];
+          return (
+            <span
+              key={agent.id}
+              style={{
+                fontSize: 11,
+                padding: "3px 8px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                color: agent.status === "running" ? "var(--neon-green)" : "var(--text-muted)",
+                backgroundColor: "var(--surface-2)",
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              {agent.name}
+              {agent.role === "orchestrator" && rcStatus && rcStatus !== "unknown" && (
+                <RcDot status={rcStatus} />
+              )}
+            </span>
+          );
+        })}
       </div>
 
       {/* Footer */}
@@ -106,7 +120,7 @@ export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
         <div style={{ display: "flex", gap: 8 }}>
           {isRunning ? (
             <button
-              onClick={() => onStop(team.id)}
+              onClick={(e) => { e.stopPropagation(); onStop(team.id); }}
               style={{
                 padding: "6px 16px",
                 borderRadius: 8,
@@ -122,7 +136,7 @@ export function TeamCard({ team, onStart, onStop }: TeamCardProps) {
             </button>
           ) : (
             <button
-              onClick={() => onStart(team.id)}
+              onClick={(e) => { e.stopPropagation(); onStart(team.id); }}
               style={{
                 padding: "6px 16px",
                 borderRadius: 8,

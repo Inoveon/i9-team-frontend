@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { ChevronDown } from "lucide-react";
 import { getAuthToken } from "@/lib/api";
 import { getWsBase } from "@/lib/runtime-config";
 
@@ -22,14 +23,81 @@ interface TerminalProps {
   onMenuChange?: (session: string, menu: InteractiveMenu | null) => void;
 }
 
+interface Attachment {
+  id: string;
+  dataUrl: string;
+  comment: string;
+}
+
+function AttachmentPreview({ att, onRemove, onCommentChange }: {
+  att: Attachment;
+  onRemove: (id: string) => void;
+  onCommentChange: (id: string, comment: string) => void;
+}) {
+  return (
+    <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ position: "relative" }}>
+        <img
+          src={att.dataUrl}
+          alt="attachment"
+          style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, display: "block", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+        />
+        <button
+          type="button"
+          onClick={() => onRemove(att.id)}
+          style={{
+            position: "absolute",
+            top: 2,
+            right: 2,
+            background: "rgba(0,0,0,0.6)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "50%",
+            width: 16,
+            height: 16,
+            fontSize: 10,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ×
+        </button>
+      </div>
+      <input
+        type="text"
+        placeholder="Comentário..."
+        value={att.comment}
+        onChange={(e) => onCommentChange(att.id, e.target.value)}
+        style={{
+          fontSize: 11,
+          background: "transparent",
+          border: "none",
+          borderBottom: "1px solid rgba(255,255,255,0.15)",
+          color: "var(--text-secondary, rgba(255,255,255,0.5))",
+          width: 80,
+          outline: "none",
+          padding: "1px 0",
+        }}
+      />
+    </div>
+  );
+}
+
 export function Terminal({ session, height, showInput = false, initialMenu = null, onMenuChange }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollWrapperRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<InteractiveMenu | null>(initialMenu);
   const menuRef = useRef<InteractiveMenu | null>(null);
   const noMenuCountRef = useRef(0);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   // Sync menuRef whenever menu state changes (accessible inside WS closures)
   useEffect(() => { menuRef.current = menu; }, [menu]);
@@ -72,8 +140,16 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
       fitAddon.fit();
       termRef.current = term;
 
-      const observer = new ResizeObserver(() => fitAddon.fit());
+      const sendResize = () => {
+        fitAddon.fit();
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+        }
+      };
+      const observer = new ResizeObserver(sendResize);
       observer.observe(containerRef.current);
+      if (scrollWrapperRef.current) observer.observe(scrollWrapperRef.current);
       cleanupObserver = () => observer.disconnect();
 
       // WebSocket — token via query param (browser não suporta headers em WS)
@@ -87,6 +163,10 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
       ws.onopen = () => {
         console.log("[TerminalWS] WS OPEN — sessão:", session);
         ws.send(JSON.stringify({ type: "subscribe", session }));
+        setTimeout(() => {
+          fitAddon.fit();
+          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+        }, 100);
         term.writeln(`\x1b[36m[i9-team] Conectado — sessão: ${session}\x1b[0m`);
       };
 
@@ -147,6 +227,45 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     };
   }, [session]);
 
+  // Melhoria 1 — rastrear scroll no wrapper xterm para exibir botão "ir ao fim"
+  const handleScrollWrapperScroll = useCallback(() => {
+    const el = scrollWrapperRef.current;
+    if (!el) return;
+    const notAtBottom = el.scrollTop < el.scrollHeight - el.clientHeight - 20;
+    setShowScrollBtn(notAtBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollWrapperRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find(item => item.type.startsWith("image/"));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setAttachments(prev => [...prev, { id: Date.now().toString(), dataUrl, comment: "" }]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const buildMessage = useCallback((text: string, atts: Attachment[]) => {
+    let msg = text.trim();
+    if (atts.length > 0) {
+      atts.forEach((att, i) => {
+        msg += `\n\n[Imagem ${i + 1}: screenshot-${att.id}.png]\nComentário: ${att.comment.trim() || "sem comentário"}`;
+      });
+    }
+    return msg;
+  }, []);
+
   function sendInput(text: string) {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || !text.trim()) return;
@@ -169,9 +288,15 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: height ? undefined : 1, minHeight: 0, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: height ? undefined : 1, minHeight: 0, height: height ? undefined : 0, overflow: "hidden" }}>
       {/* Terminal + overlay wrapper */}
-      <div style={{ position: "relative", flex: height ? undefined : 1, height: height ?? undefined, minHeight: 0, overflow: "hidden" }}>
+      <div
+        ref={scrollWrapperRef}
+        onScroll={handleScrollWrapperScroll}
+        onWheel={(e) => e.stopPropagation()}
+        style={{ position: "relative", flex: height ? undefined : 1, height: height ?? undefined, minHeight: 0, overflow: "hidden" }}
+      >
+        {/* Melhoria 5 — pointer-events none no container do xterm: view-only */}
         <div
           ref={containerRef}
           style={{
@@ -182,11 +307,39 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
             border: "1px solid rgba(0, 255, 136, 0.2)",
             borderBottom: showInput ? "none" : "1px solid rgba(0, 255, 136, 0.2)",
             boxShadow: "0 0 20px rgba(0, 255, 136, 0.05)",
-            // xterm canvas fica neste container — overlay precisa ficar acima
             position: "relative",
             zIndex: 0,
+            pointerEvents: "none",
+            userSelect: "none",
           }}
         />
+
+        {/* Melhoria 1 — botão flutuante "ir ao fim" */}
+        {showScrollBtn && (
+          <button
+            onClick={scrollToBottom}
+            title="Ir ao fim"
+            style={{
+              position: "absolute",
+              bottom: 40,
+              right: 12,
+              width: 28,
+              height: 28,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(0,0,0,0.6)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: "50%",
+              cursor: "pointer",
+              color: "rgba(255,255,255,0.7)",
+              zIndex: 10000,
+              pointerEvents: "auto",
+            }}
+          >
+            <ChevronDown size={14} strokeWidth={1.2} />
+          </button>
+        )}
 
         {/* Overlay de menu interativo — zIndex alto para ficar sobre canvas do xterm */}
         {menu && (
@@ -268,56 +421,111 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            const val = inputRef.current?.value ?? "";
-            if (!val.trim()) return;
-            sendInput(val);
-            if (inputRef.current) inputRef.current.value = "";
+            const val = textareaRef.current?.value ?? "";
+            const msg = buildMessage(val, attachments);
+            if (!msg.trim()) return;
+            sendInput(msg);
+            setAttachments([]);
+            if (textareaRef.current) {
+              textareaRef.current.value = "";
+              textareaRef.current.style.height = "auto";
+            }
           }}
           style={{
             display: "flex",
-            gap: 8,
+            flexDirection: "column",
             background: "#0a0a0a",
             border: "1px solid rgba(0, 255, 136, 0.2)",
             borderRadius: "0 0 8px 8px",
-            padding: "8px 12px",
             flexShrink: 0,
           }}
         >
-          <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "32px" }}>
-            ❯
-          </span>
-          <input
-            ref={inputRef}
-            placeholder="Enviar mensagem ao agente..."
-            autoComplete="off"
-            spellCheck={false}
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "#00ff88",
-              fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-              fontSize: 13,
-              caretColor: "#00d4ff",
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              padding: "4px 16px",
-              borderRadius: 6,
-              border: "1px solid rgba(0,255,136,0.4)",
-              background: "transparent",
-              color: "#00ff88",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "monospace",
-            }}
-          >
-            Enter
-          </button>
+          {/* Área de miniaturas */}
+          {attachments.length > 0 && (
+            <div style={{ display: "flex", gap: 8, padding: "8px 12px 0", flexWrap: "wrap", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              {attachments.map(att => (
+                <AttachmentPreview
+                  key={att.id}
+                  att={att}
+                  onRemove={(id) => setAttachments(prev => prev.filter(a => a.id !== id))}
+                  onCommentChange={(id, comment) => setAttachments(prev => prev.map(a => a.id === id ? { ...a, comment } : a))}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Input row */}
+          <div style={{ display: "flex", gap: 8, padding: "8px 12px", alignItems: "flex-end" }}>
+            <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "24px", paddingBottom: 2 }}>
+              ❯
+            </span>
+            {/* Melhoria 6 — textarea auto-expansível */}
+            {/* Melhoria 7 — Cmd+Enter ou Ctrl+Enter envia; Enter puro = nova linha */}
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              placeholder="Enviar mensagem ao agente... (Cmd+Enter para enviar)"
+              autoComplete="off"
+              spellCheck={false}
+              onPaste={handlePaste}
+              onChange={(e) => {
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 132) + "px";
+                if (e.target.scrollHeight > 132) {
+                  e.target.style.overflowY = "auto";
+                } else {
+                  e.target.style.overflowY = "hidden";
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  const val = textareaRef.current?.value ?? "";
+                  const msg = buildMessage(val, attachments);
+                  if (!msg.trim()) return;
+                  sendInput(msg);
+                  setAttachments([]);
+                  if (textareaRef.current) {
+                    textareaRef.current.value = "";
+                    textareaRef.current.style.height = "auto";
+                  }
+                }
+              }}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "#00ff88",
+                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                fontSize: 13,
+                caretColor: "#00d4ff",
+                resize: "none",
+                overflowY: "hidden",
+                lineHeight: "1.5",
+                maxHeight: 132,
+                paddingTop: 2,
+                paddingBottom: 2,
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: "4px 16px",
+                borderRadius: 6,
+                border: "1px solid rgba(0,255,136,0.4)",
+                background: "transparent",
+                color: "#00ff88",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "monospace",
+                flexShrink: 0,
+              }}
+            >
+              Enter
+            </button>
+          </div>
         </form>
       )}
     </div>

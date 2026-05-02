@@ -2,14 +2,12 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { AgentPanel } from "@/components/AgentPanel";
-import { AgentView } from "@/components/AgentView";
-import { StatusBadge } from "@/components/StatusBadge";
+import { AgentGrid } from "@/components/AgentPane";
 import { NotesPanel } from "@/components/notes/NotesPanel";
 import { useTeamStore } from "@/lib/store";
-import { api } from "@/lib/api";
+import { api, sendViaBridge, BridgeUnavailableError, AgentNotFoundError } from "@/lib/api";
+import { toast } from "sonner";
 import type { Team } from "@/types";
 
 type PageTab = "agents" | "notes";
@@ -58,9 +56,6 @@ export default function TeamPage() {
   }, [fetchTeam, pageTab]);
 
   const orchestrator = activeTeam?.agents.find((a) => a.role === "orchestrator");
-  const workers = activeTeam?.agents.filter((a) => a.role === "worker") ?? [];
-  const [selectedWorkerIdx, setSelectedWorkerIdx] = useState(0);
-  const selectedWorker = workers[selectedWorkerIdx] ?? null;
 
   /**
    * Envia mensagem ao agente.
@@ -97,31 +92,24 @@ export default function TeamPage() {
       );
     }
 
-    const attachmentIds = opts?.attachmentIds;
-    const payload: {
-      agentId: string;
-      message: string;
-      attachmentIds?: string[];
-    } = { agentId: targetAgent.id, message };
-    if (attachmentIds && attachmentIds.length > 0) {
-      payload.attachmentIds = attachmentIds;
-    }
-
-    console.log("[TeamPage] POST /teams/:id/message", {
+    console.log("[TeamPage] sendViaBridge", {
       teamId: activeTeam.id,
       agentName: targetAgent.name,
       agentRole: targetAgent.role,
       bytes: message.length,
-      attachments: attachmentIds?.length ?? 0,
     });
     try {
-      const resp = await api.post<{ ok: boolean; session: string; agent: string }>(
-        `/teams/${activeTeam.id}/message`,
-        payload
-      );
-      console.log("[TeamPage] POST /message OK", resp);
+      const resp = await sendViaBridge(activeTeam.id, targetAgent.name, message);
+      console.log("[TeamPage] bridge OK", resp);
     } catch (err) {
-      console.error("[TeamPage] POST /message FAIL", err);
+      if (err instanceof BridgeUnavailableError) {
+        toast.error("Bridge indisponível — mensagem não entregue");
+      } else if (err instanceof AgentNotFoundError) {
+        toast.error("Agente não encontrado");
+      } else {
+        toast.error(err instanceof Error ? err.message : "Erro ao enviar mensagem");
+      }
+      console.error("[TeamPage] bridge FAIL", err);
       throw err;
     }
   };
@@ -129,57 +117,27 @@ export default function TeamPage() {
   return (
     <div
       style={{
-        height: "100vh",
-        padding: "32px 24px",
+        flex: 1,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        minHeight: 0,
       }}
     >
-      {/* ── HEADER (nav + título + tabs) — flexShrink:0 ───────────────── */}
-      {/* Nav */}
-      <div style={{ marginBottom: 24, flexShrink: 0 }}>
-        <Link
-          href="/"
-          style={{ fontSize: 13, color: "var(--text-muted)", textDecoration: "none" }}
-        >
-          Dashboard
-        </Link>
-        <span style={{ color: "var(--border)", margin: "0 8px" }}>/</span>
-        <span style={{ fontSize: 13, color: "var(--neon-blue)" }}>
-          {params.project} / {params.team}
-        </span>
-      </div>
-
-      <motion.h1
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        style={{
-          fontSize: 24,
-          fontWeight: 800,
-          color: "var(--text)",
-          marginBottom: 16,
-          letterSpacing: "-0.02em",
-          flexShrink: 0,
-        }}
-      >
-        {activeTeam?.name ?? `${params.project}/${params.team}`}
-      </motion.h1>
-
       {/* Tabs da página (Agentes / Notas) */}
       <div
         style={{
           display: "flex",
           gap: 2,
-          marginBottom: 20,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           flexShrink: 0,
+          paddingLeft: 12,
         }}
       >
         {(
           [
             { key: "agents", label: "Agentes", icon: "▸" },
-            { key: "notes", label: "Notas", icon: "📄" },
+            { key: "notes", label: "Notas", icon: "◉" },
           ] as { key: PageTab; label: string; icon: string }[]
         ).map((t) => {
           const isActive = pageTab === t.key;
@@ -194,12 +152,12 @@ export default function TeamPage() {
                 fontFamily: '"JetBrains Mono", monospace',
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                background: isActive ? "rgba(0,212,255,0.06)" : "transparent",
+                background: "transparent",
                 border: "none",
                 borderBottom: isActive
-                  ? "2px solid var(--neon-blue)"
+                  ? "2px solid rgba(255,255,255,0.6)"
                   : "2px solid transparent",
-                color: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.35)",
+                color: isActive ? "var(--text-primary)" : "rgba(255,255,255,0.35)",
                 cursor: "pointer",
                 transition: "all 0.15s",
                 display: "flex",
@@ -215,7 +173,7 @@ export default function TeamPage() {
         })}
       </div>
 
-      {/* ── CONTEÚDO — flex:1 ocupa restante do viewport ─────────────── */}
+      {/* ── CONTEÚDO ─────────────────────────────────────────────────── */}
       {!activeTeam ? (
         <div
           className="card"
@@ -223,7 +181,7 @@ export default function TeamPage() {
             padding: 48,
             textAlign: "center",
             color: "var(--text-muted)",
-            flexShrink: 0,
+            margin: 24,
           }}
         >
           Carregando team...
@@ -233,249 +191,21 @@ export default function TeamPage() {
           <NotesPanel teamId={activeTeam.id} />
         </div>
       ) : (
-        <div
-          className="team-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "60fr 40fr",
-            gap: 20,
-            alignItems: "stretch",
-            flex: 1,
-            minHeight: 0,
-            overflow: "hidden",
-          }}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+          style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
         >
-          {/* Orchestrator column */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              minHeight: 0,
-              height: "100%",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                marginBottom: 12,
-                flexShrink: 0,
-              }}
-            >
-              Orquestrador
-            </p>
-            {orchestrator?.sessionId ? (
-              <div
-                className="card"
-                style={{
-                  padding: 12,
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  minHeight: 0,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 10,
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-purple)" }}>
-                    {orchestrator.name}
-                  </span>
-                  <StatusBadge status={orchestrator.status} size="sm" />
-                </div>
-                <AgentView
-                  session={orchestrator.sessionId}
-                  showInput
-                  teamId={activeTeam.id}
-                  onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
-                />
-              </div>
-            ) : orchestrator ? (
-              <AgentPanel
-                agent={orchestrator}
-                showInput
-                teamId={activeTeam.id}
-                onSendMessage={(m, opts) => handleSendMessage(m, undefined, opts)}
-              />
-            ) : (
-              <div
-                className="card"
-                style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}
-              >
-                Nenhum orquestrador configurado
-              </div>
-            )}
-          </div>
-
-          {/* Workers column */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              minHeight: 0,
-              height: "100%",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                flexShrink: 0,
-              }}
-            >
-              Agentes ({workers.length})
-            </p>
-
-            {workers.length === 0 ? (
-              <div className="card" style={{ padding: 24, color: "var(--text-muted)", flexShrink: 0 }}>
-                Nenhum agente worker
-              </div>
-            ) : (
-              <>
-                {/* Tabs de seleção — scroll horizontal se muitos agentes */}
-                <div style={{
-                  display: "flex",
-                  gap: 6,
-                  overflowX: "auto",
-                  paddingBottom: 4,
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "rgba(0,212,255,0.2) transparent",
-                  flexShrink: 0,
-                }}>
-                  {workers.map((agent, idx) => {
-                    const isActive = idx === selectedWorkerIdx;
-                    return (
-                      <button
-                        key={agent.id}
-                        onClick={() => setSelectedWorkerIdx(idx)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "5px 12px",
-                          borderRadius: 8,
-                          border: isActive
-                            ? "1px solid rgba(0,212,255,0.5)"
-                            : "1px solid rgba(255,255,255,0.06)",
-                          background: isActive
-                            ? "rgba(0,212,255,0.08)"
-                            : "rgba(255,255,255,0.02)",
-                          color: isActive ? "var(--neon-blue)" : "var(--text-muted)",
-                          fontSize: 12,
-                          fontWeight: isActive ? 700 : 400,
-                          fontFamily: '"JetBrains Mono", monospace',
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                          transition: "all 0.15s",
-                          boxShadow: isActive ? "0 0 10px rgba(0,212,255,0.15)" : "none",
-                        }}
-                      >
-                        <span style={{
-                          width: 6, height: 6, borderRadius: "50%",
-                          background: isActive ? "var(--neon-blue)" : "rgba(255,255,255,0.15)",
-                          flexShrink: 0,
-                        }} />
-                        {agent.name}
-                        <StatusBadge status={agent.status} size="sm" />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Painel do agente selecionado — flex:1 ocupa restante da coluna */}
-                {selectedWorker && (
-                  <motion.div
-                    key={selectedWorker.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
-                    style={{
-                      flex: 1,
-                      minHeight: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  >
-                    <div
-                      className="card"
-                      style={{
-                        padding: 12,
-                        display: "flex",
-                        flexDirection: "column",
-                        flex: 1,
-                        minHeight: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 10,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--neon-blue)" }}>
-                          {selectedWorker.name}
-                        </span>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginRight: 8 }}>
-                          worker
-                        </span>
-                        <StatusBadge status={selectedWorker.status} size="sm" />
-                      </div>
-                      {selectedWorker.sessionId ? (
-                        <AgentView
-                          session={selectedWorker.sessionId}
-                          showInput
-                          teamId={activeTeam.id}
-                          onSendMessage={(msg, opts) =>
-                            handleSendMessage(msg, selectedWorker.id, opts)
-                          }
-                        />
-                      ) : (
-                        <AgentPanel
-                          agent={selectedWorker}
-                          showInput
-                          teamId={activeTeam.id}
-                          onSendMessage={(msg, opts) =>
-                            handleSendMessage(msg, selectedWorker.id, opts)
-                          }
-                        />
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+          <AgentGrid
+            agents={activeTeam.agents}
+            orchestratorId={orchestrator?.id}
+            teamId={activeTeam.id}
+            teamName={activeTeam.name ?? `${params.project}/${params.team}`}
+            onSendMessage={(msg, agentId, opts) => handleSendMessage(msg, agentId, opts)}
+          />
+        </motion.div>
       )}
-
-      {/* ── Responsivo: em <900px vira coluna única empilhada ─────────── */}
-      <style jsx>{`
-        @media (max-width: 900px) {
-          :global(.team-grid) {
-            grid-template-columns: 1fr !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-          }
-          :global(.team-grid) > div {
-            min-height: 420px;
-          }
-        }
-      `}</style>
     </div>
   );
 }

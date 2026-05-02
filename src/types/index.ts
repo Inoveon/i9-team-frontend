@@ -1,4 +1,13 @@
 export type AgentStatus = "idle" | "running" | "error" | "stopped";
+export type RcStatus = "active" | "reconnecting" | "disconnected" | "unknown";
+
+export interface RcEntry {
+  session: string;
+  agent: string;
+  project: string;
+  team: string;
+  rc_status: RcStatus;
+}
 
 export interface Agent {
   id: string;

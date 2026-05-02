@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { TeamCard } from "@/components/TeamCard";
 import { useTeamStore } from "@/lib/store";
 import { toast } from "sonner";
-import { getTeams, getAgents, api } from "@/lib/api";
-import type { Team } from "@/types";
+import { getTeams, getAgents, getRcStatus, api } from "@/lib/api";
+import type { Team, RcStatus } from "@/types";
 
 export default function DashboardPage() {
-  const { teams, setTeams, updateTeamStatus, updateAgentsStatus } = useTeamStore();
+  const { teams, setTeams, updateTeamStatus, updateAgentStatus } = useTeamStore();
+  const [rcStatusMap, setRcStatusMap] = useState<Record<string, RcStatus>>({});
 
   const fetchTeams = useCallback(async () => {
     try {
@@ -20,7 +21,7 @@ export default function DashboardPage() {
         data.map(async (team) => {
           try {
             const res = await getAgents(team.id);
-            updateAgentsStatus(team.id, res.agents);
+            for (const agent of res.agents) { updateAgentStatus(team.id, agent.id, agent.active ? "running" : "stopped"); }
           } catch {
             // team sem agentes ativos — ignora
           }
@@ -29,13 +30,30 @@ export default function DashboardPage() {
     } catch {
       // Backend may not be running yet
     }
-  }, [setTeams, updateAgentsStatus]);
+  }, [setTeams, updateAgentStatus]);
+
+  const fetchRcStatus = useCallback(async () => {
+    try {
+      const { rc } = await getRcStatus();
+      const map: Record<string, RcStatus> = {};
+      for (const entry of rc) {
+        map[`${entry.project}/${entry.team}/${entry.agent}`] = entry.rc_status;
+      }
+      setRcStatusMap(map);
+    } catch {
+      // RC endpoint indisponível — ignora
+    }
+  }, []);
 
   useEffect(() => {
     void fetchTeams();
-    const interval = setInterval(() => void fetchTeams(), 5000);
+    void fetchRcStatus();
+    const interval = setInterval(() => {
+      void fetchTeams();
+      void fetchRcStatus();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchTeams]);
+  }, [fetchTeams, fetchRcStatus]);
 
   const handleStart = async (teamId: string) => {
     try {
@@ -64,8 +82,8 @@ export default function DashboardPage() {
       style={{
         minHeight: "100vh",
         padding: "40px 32px",
-        maxWidth: 1200,
-        margin: "0 auto",
+        maxWidth: "100%",
+        
       }}
     >
       {/* Header */}
@@ -148,6 +166,7 @@ export default function DashboardPage() {
                 team={team}
                 onStart={handleStart}
                 onStop={handleStop}
+                rcStatusMap={rcStatusMap}
               />
             </motion.div>
           ))}
