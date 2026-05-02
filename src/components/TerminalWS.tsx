@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
-import { getAuthToken } from "@/lib/api";
+import { getAuthToken, uploadScreenshot } from "@/lib/api";
 import { getWsBase } from "@/lib/runtime-config";
 
 interface MenuOption {
@@ -29,6 +29,8 @@ interface Attachment {
   id: string;
   dataUrl: string;
   comment: string;
+  /** Path no servidor após upload — preenchido antes do envio */
+  serverPath?: string;
 }
 
 function AttachmentPreview({ att, onRemove, onCommentChange }: {
@@ -285,22 +287,36 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     let msg = text.trim();
     if (atts.length > 0) {
       atts.forEach((att, i) => {
-        msg += `\n\n[Imagem ${i + 1}: screenshot-${att.id}.png]\nComentário: ${att.comment.trim() || "sem comentário"}`;
+        const path = att.serverPath ?? `screenshot-${att.id}.png`;
+        msg += `\n\n[Imagem ${i + 1}: ${path}]`;
+        if (att.comment.trim()) msg += `\nComentário: ${att.comment.trim()}`;
       });
     }
     return msg;
   }, []);
 
-  async function sendInput(text: string) {
-    if (!text.trim()) return;
-    // Preferir bridge (onSendMessage) para evitar problemas com tmux send-keys
+  async function sendInputWithAttachments(text: string, atts: Attachment[]) {
+    // Fazer upload das imagens que ainda não têm serverPath
+    const uploaded = await Promise.all(
+      atts.map(async (att) => {
+        if (att.serverPath) return att;
+        try {
+          const { path } = await uploadScreenshot(att.dataUrl);
+          return { ...att, serverPath: path };
+        } catch {
+          return att; // fallback: usa nome gerado
+        }
+      })
+    );
+    const msg = buildMessage(text, uploaded);
+    if (!msg.trim()) return;
     if (onSendMessage) {
-      try { await onSendMessage(text); } catch { /* ignore */ }
+      try { await onSendMessage(msg); } catch { /* ignore */ }
       return;
     }
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: "input", keys: text }));
+    ws.send(JSON.stringify({ type: "input", keys: msg }));
   }
 
   function selectOption(index: number) {
@@ -457,14 +473,14 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
           onSubmit={(e) => {
             e.preventDefault();
             const val = textareaRef.current?.value ?? "";
-            const msg = buildMessage(val, attachments);
-            if (!msg.trim()) return;
-            void sendInput(msg);
+            if (!val.trim() && attachments.length === 0) return;
+            const atts = attachments;
             setAttachments([]);
             if (textareaRef.current) {
               textareaRef.current.value = "";
               textareaRef.current.style.height = "auto";
             }
+            void sendInputWithAttachments(val, atts);
           }}
           style={{
             display: "flex",
@@ -554,14 +570,14 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   const val = textareaRef.current?.value ?? "";
-                  const msg = buildMessage(val, attachments);
-                  if (!msg.trim()) return;
-                  void sendInput(msg);
+                  if (!val.trim() && attachments.length === 0) return;
+                  const atts = attachments;
                   setAttachments([]);
                   if (textareaRef.current) {
                     textareaRef.current.value = "";
                     textareaRef.current.style.height = "auto";
                   }
+                  void sendInputWithAttachments(val, atts);
                 }
               }}
               style={{

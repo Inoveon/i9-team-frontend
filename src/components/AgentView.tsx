@@ -85,8 +85,7 @@ export function AgentView({
         attachments: attachmentIds?.length ?? 0,
       });
       // Remove markup de imagens para exibir texto limpo na aba Chat
-      // (o markup [Imagem N: ...] é para o agente, não para o display)
-      const displayText = msg.replace(/\n\n\[Imagem \d+:[^\n]*\]\nComentário:[^\n]*/g, "").trim();
+      const displayText = msg.replace(/\n\n\[Imagem \d+:[^\]]*\](\nComentário:[^\n]*)?/g, "").trim();
       // Feedback otimista: empurra user_input localmente com texto limpo
       appendLocal("user_input", displayText, { attachments });
       try {

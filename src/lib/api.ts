@@ -212,3 +212,11 @@ export class AgentNotFoundError extends Error {
     this.name = "AgentNotFoundError";
   }
 }
+
+export async function uploadScreenshot(dataUrl: string): Promise<{ path: string; filename: string }> {
+  return request<{ path: string; filename: string }>("/upload/screenshot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataUrl }),
+  });
+}
