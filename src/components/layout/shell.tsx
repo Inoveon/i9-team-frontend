@@ -99,8 +99,8 @@ export function Shell({ children, activePage = 'dashboard', onNavigate, titlebar
 
   return (
     <div
-      className="flex flex-col min-h-screen"
-      style={{ backgroundColor: 'var(--bg)' }}
+      className="flex flex-col"
+      style={{ backgroundColor: 'var(--bg)', height: '100vh', overflow: 'hidden' }}
     >
       {/* Titlebar */}
       <header

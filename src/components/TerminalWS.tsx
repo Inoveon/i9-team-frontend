@@ -21,6 +21,8 @@ interface TerminalProps {
   showInput?: boolean;
   initialMenu?: InteractiveMenu | null;
   onMenuChange?: (session: string, menu: InteractiveMenu | null) => void;
+  /** Se fornecido, enviar mensagens pelo bridge em vez do WS direto */
+  onSendMessage?: (msg: string, opts?: { attachmentIds?: string[] }) => void | Promise<void>;
 }
 
 interface Attachment {
@@ -87,7 +89,7 @@ function AttachmentPreview({ att, onRemove, onCommentChange }: {
   );
 }
 
-export function Terminal({ session, height, showInput = false, initialMenu = null, onMenuChange }: TerminalProps) {
+export function Terminal({ session, height, showInput = false, initialMenu = null, onMenuChange, onSendMessage }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -151,6 +153,13 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
       observer.observe(containerRef.current);
       if (scrollWrapperRef.current) observer.observe(scrollWrapperRef.current);
       cleanupObserver = () => observer.disconnect();
+
+      // Rastrear posição de scroll do xterm para mostrar botão flutuante
+      term.onScroll(() => {
+        const buf = term.buffer.active;
+        const atBottom = buf.viewportY >= buf.length - term.rows;
+        setShowScrollBtn(!atBottom);
+      });
 
       // WebSocket — token via query param (browser não suporta headers em WS)
       let token = "";
@@ -227,18 +236,8 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     };
   }, [session]);
 
-  // Melhoria 1 — rastrear scroll no wrapper xterm para exibir botão "ir ao fim"
-  const handleScrollWrapperScroll = useCallback(() => {
-    const el = scrollWrapperRef.current;
-    if (!el) return;
-    const notAtBottom = el.scrollTop < el.scrollHeight - el.clientHeight - 20;
-    setShowScrollBtn(notAtBottom);
-  }, []);
-
   const scrollToBottom = useCallback(() => {
-    const el = scrollWrapperRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    termRef.current?.scrollToBottom();
   }, []);
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -266,9 +265,15 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     return msg;
   }, []);
 
-  function sendInput(text: string) {
+  async function sendInput(text: string) {
+    if (!text.trim()) return;
+    // Preferir bridge (onSendMessage) para evitar problemas com tmux send-keys
+    if (onSendMessage) {
+      try { await onSendMessage(text); } catch { /* ignore */ }
+      return;
+    }
     const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN || !text.trim()) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type: "input", keys: text }));
   }
 
@@ -292,8 +297,11 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
       {/* Terminal + overlay wrapper */}
       <div
         ref={scrollWrapperRef}
-        onScroll={handleScrollWrapperScroll}
-        onWheel={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          const lines = Math.round(e.deltaY / 20);
+          termRef.current?.scrollLines(lines);
+        }}
         style={{ position: "relative", flex: height ? undefined : 1, height: height ?? undefined, minHeight: 0, overflow: "hidden" }}
       >
         {/* Melhoria 5 — pointer-events none no container do xterm: view-only */}
@@ -424,7 +432,7 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
             const val = textareaRef.current?.value ?? "";
             const msg = buildMessage(val, attachments);
             if (!msg.trim()) return;
-            sendInput(msg);
+            void sendInput(msg);
             setAttachments([]);
             if (textareaRef.current) {
               textareaRef.current.value = "";
@@ -483,7 +491,7 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
                   const val = textareaRef.current?.value ?? "";
                   const msg = buildMessage(val, attachments);
                   if (!msg.trim()) return;
-                  sendInput(msg);
+                  void sendInput(msg);
                   setAttachments([]);
                   if (textareaRef.current) {
                     textareaRef.current.value = "";

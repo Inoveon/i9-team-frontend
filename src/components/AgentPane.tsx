@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { AgentPanel } from '@/components/AgentPanel';
 import { AgentView } from '@/components/AgentView';
@@ -15,9 +15,7 @@ export interface AgentPaneProps {
 }
 
 export function AgentPane({ agent, teamId, onSendMessage, isOrchestrator = false }: AgentPaneProps) {
-  // Melhoria 2 — estado de expansão do painel
-  const [expanded, setExpanded] = useState(false);
-  // Melhoria 4 — key para forçar remount do terminal (reconexão)
+  // Key para forçar remount do terminal (reconexão)
   const [terminalKey, setTerminalKey] = useState(0);
 
   const handleSend = useCallback(
@@ -47,9 +45,8 @@ export function AgentPane({ agent, teamId, onSendMessage, isOrchestrator = false
       style={{
         display: 'flex',
         flexDirection: 'column',
-        // Melhoria 2 — expandido: cresce para além do grid; contraído: preenche célula
-        height: expanded ? 'auto' : '100%',
-        minHeight: expanded ? 600 : 0,
+        height: '100%',
+        minHeight: 0,
         borderRadius: 12,
         border: isOrchestrator
           ? '1px solid rgba(255,255,255,0.14)'
@@ -104,25 +101,13 @@ export function AgentPane({ agent, teamId, onSendMessage, isOrchestrator = false
           </span>
         )}
         <StatusBadge status={agent.status} size="sm" />
-        {/* Melhoria 4 — botão refresh/reconexão */}
+        {/* Botão refresh/reconexão */}
         <button
           onClick={() => setTerminalKey((k) => k + 1)}
           title="Reconectar terminal"
           style={headerBtnStyle}
         >
           <RefreshCw size={14} strokeWidth={1.2} />
-        </button>
-        {/* Melhoria 2 — botão expandir/contrair */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? 'Contrair painel' : 'Expandir painel'}
-          style={headerBtnStyle}
-        >
-          {expanded ? (
-            <Minimize2 size={14} strokeWidth={1.2} />
-          ) : (
-            <Maximize2 size={14} strokeWidth={1.2} />
-          )}
         </button>
       </div>
 

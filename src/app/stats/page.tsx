@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { AlertCircle, BarChart2, Clock, Radio, Users } from 'lucide-react';
-import { Shell } from '@/components/layout/shell';
 import { GlassCard, LoadingShimmer } from '@/components/ui/glass';
 import { getBridgeStatus, getBridgeStats } from '@/lib/api';
 import type { BridgeStatus, BridgeStats } from '@/lib/api';
@@ -139,7 +137,6 @@ function VolumeChart({ data }: VolumeChartProps) {
 // ---------------------------------------------------------------------------
 
 export default function StatsPage() {
-  const pathname = usePathname();
   const [status, setStatus] = useState<BridgeStatus | null>(null);
   const [stats, setStats] = useState<BridgeStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,11 +161,9 @@ export default function StatsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const activePage = pathname === '/stats' ? 'stats' : 'dashboard';
 
   return (
-    <Shell activePage={activePage} breadcrumb="Stats">
-      <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Error */}
         {error && (
@@ -308,6 +303,5 @@ export default function StatsPage() {
         </GlassCard>
 
       </div>
-    </Shell>
   );
 }

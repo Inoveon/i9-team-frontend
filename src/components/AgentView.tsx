@@ -188,6 +188,7 @@ export function AgentView({
             session={session}
             height={height}
             showInput={showInput && tab === "terminal"}
+            onSendMessage={onSendMessage}
           />
         </div>
 

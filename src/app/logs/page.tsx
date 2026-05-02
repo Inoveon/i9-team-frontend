@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
 import { FileText, Pause, Play, Trash2 } from 'lucide-react';
-import { Shell } from '@/components/layout/shell';
 import { GlassButton } from '@/components/ui/glass';
 import { getApiBase } from '@/lib/runtime-config';
 import { getAuthToken } from '@/lib/api';
@@ -40,7 +38,6 @@ function ConnectionDot({ connected }: { connected: boolean }) {
 // ---------------------------------------------------------------------------
 
 export default function LogsPage() {
-  const pathname = usePathname();
   const [lines, setLines] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -113,11 +110,9 @@ export default function LogsPage() {
     }
   }, [lines, paused]);
 
-  const activePage = pathname === '/logs' ? 'logs' : 'dashboard';
 
   return (
-    <Shell activePage={activePage} breadcrumb="Logs">
-      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -182,6 +177,5 @@ export default function LogsPage() {
         </div>
 
       </div>
-    </Shell>
   );
 }

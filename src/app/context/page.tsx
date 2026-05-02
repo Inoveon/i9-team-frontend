@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
-import { Shell } from '@/components/layout/shell';
 import {
   GlassCard,
   LoadingShimmer,
@@ -122,7 +120,6 @@ function AgentContextCard({ entry }: { entry: AgentContextEntry }) {
 // ---------------------------------------------------------------------------
 
 export default function ContextPage() {
-  const pathname = usePathname();
   const [agents, setAgents] = useState<AgentContextEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,11 +149,9 @@ export default function ContextPage() {
     return acc;
   }, {});
 
-  const activePage = pathname === '/context' ? 'context' : 'dashboard';
 
   return (
-    <Shell activePage={activePage} breadcrumb="Context">
-      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Error */}
         {error && (
@@ -208,6 +203,5 @@ export default function ContextPage() {
             </div>
           ))}
       </div>
-    </Shell>
   );
 }

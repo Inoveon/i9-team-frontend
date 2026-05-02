@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { AlertCircle, RefreshCw, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { Shell } from '@/components/layout/shell';
 import { GlassCard, GlassButton, GlassSelect, LoadingShimmer } from '@/components/ui/glass';
 import { getApiBase } from '@/lib/runtime-config';
 import { getAuthToken } from '@/lib/api';
@@ -157,7 +155,6 @@ function EventRow({ event }: { event: AuditEvent }) {
 // ---------------------------------------------------------------------------
 
 export default function AuditPage() {
-  const pathname = usePathname();
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -241,11 +238,9 @@ export default function AuditPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const activePage = pathname?.includes('/audit') ? 'audit' : 'dashboard';
 
   return (
-    <Shell activePage={activePage} breadcrumb="Audit Log">
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -387,6 +382,5 @@ export default function AuditPage() {
           </div>
         )}
       </div>
-    </Shell>
   );
 }

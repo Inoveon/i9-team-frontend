@@ -3,35 +3,39 @@
 import { usePathname } from 'next/navigation';
 import { Shell } from './shell';
 
-function pageIdFromPath(pathname: string): string {
-  if (pathname === '/') return 'dashboard';
-  if (pathname.startsWith('/stats')) return 'stats';
-  if (pathname.startsWith('/timeline')) return 'timeline';
-  if (pathname.startsWith('/context')) return 'context';
-  if (pathname.startsWith('/audit')) return 'audit';
-  if (pathname.startsWith('/logs')) return 'logs';
-  return 'dashboard';
+const PAGE_META: Record<string, { id: string; label: string }> = {
+  '/':         { id: 'dashboard', label: 'Dashboard' },
+  '/stats':    { id: 'stats',     label: 'Stats' },
+  '/timeline': { id: 'timeline',  label: 'Timeline' },
+  '/context':  { id: 'context',   label: 'Context' },
+  '/audit':    { id: 'audit',     label: 'Audit' },
+  '/logs':     { id: 'logs',      label: 'Logs' },
+};
+
+function pageMeta(pathname: string): { id: string; label: string } {
+  if (PAGE_META[pathname]) return PAGE_META[pathname];
+  for (const [key, val] of Object.entries(PAGE_META)) {
+    if (key !== '/' && pathname.startsWith(key)) return val;
+  }
+  return { id: 'dashboard', label: '' };
 }
 
 export function ShellWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const activePage = pageIdFromPath(pathname);
-
-  // Na página de team, o Shell não tem padding lateral — o conteúdo gerencia seu próprio layout
   const isTeamPage = pathname.startsWith('/team/');
+  const { id: activePage, label } = pageMeta(pathname);
+  const breadcrumb = isTeamPage ? pathname.replace('/team/', '') : label;
 
   return (
-    <Shell
-      activePage={activePage}
-      breadcrumb={isTeamPage ? pathname.replace('/team/', '') : undefined}
-    >
+    <Shell activePage={activePage} breadcrumb={breadcrumb}>
       {isTeamPage ? (
-        // Team page controla seu próprio overflow/padding
+        // Team page controla seu próprio overflow/padding — sem scroll principal
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
           {children}
         </div>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        // Outras páginas: scroll vertical, padding generoso
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, minHeight: 0 }}>
           {children}
         </div>
       )}

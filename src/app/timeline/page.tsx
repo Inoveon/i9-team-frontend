@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Shell } from '@/components/layout/shell';
 import { GlassCard, GlassButton, LoadingShimmer } from '@/components/ui/glass';
 import { getBridgeStatus } from '@/lib/api';
 import type { BridgeMessage } from '@/lib/api';
@@ -64,7 +62,6 @@ function MessageRow({ msg, last }: { msg: BridgeMessage; last: boolean }) {
 // ---------------------------------------------------------------------------
 
 export default function TimelinePage() {
-  const pathname = usePathname();
   const [messages, setMessages] = useState<BridgeMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,11 +89,9 @@ export default function TimelinePage() {
     void fetchData();
   }, []);
 
-  const activePage = pathname === '/timeline' ? 'timeline' : 'dashboard';
 
   return (
-    <Shell activePage={activePage} breadcrumb="Timeline">
-      <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Toolbar */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -166,6 +161,5 @@ export default function TimelinePage() {
         </GlassCard>
 
       </div>
-    </Shell>
   );
 }
