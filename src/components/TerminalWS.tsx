@@ -240,6 +240,19 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     termRef.current?.scrollToBottom();
   }, []);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const addImageFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setAttachments(prev => [...prev, { id: Date.now().toString(), dataUrl, comment: "" }]);
+      // Refoca textarea para permitir nova colagem imediatamente
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = Array.from(e.clipboardData.items);
     const imageItem = items.find(item => item.type.startsWith("image/"));
@@ -247,13 +260,8 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     e.preventDefault();
     const file = imageItem.getAsFile();
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setAttachments(prev => [...prev, { id: Date.now().toString(), dataUrl, comment: "" }]);
-    };
-    reader.readAsDataURL(file);
-  }, []);
+    addImageFile(file);
+  }, [addImageFile]);
 
   const buildMessage = useCallback((text: string, atts: Attachment[]) => {
     let msg = text.trim();
@@ -462,8 +470,46 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
             </div>
           )}
 
+          {/* File input oculto para adicionar imagens */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              Array.from(e.target.files ?? []).forEach(addImageFile);
+              e.target.value = "";
+              setTimeout(() => textareaRef.current?.focus(), 50);
+            }}
+          />
+
           {/* Input row */}
           <div style={{ display: "flex", gap: 8, padding: "8px 12px", alignItems: "flex-end" }}>
+            {/* Botão adicionar imagem */}
+            <button
+              type="button"
+              title="Adicionar imagem"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                width: 24,
+                height: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "transparent",
+                border: "1px solid rgba(0,255,136,0.2)",
+                borderRadius: 5,
+                color: "rgba(0,255,136,0.4)",
+                cursor: "pointer",
+                fontSize: 16,
+                lineHeight: 1,
+                flexShrink: 0,
+                paddingBottom: 1,
+              }}
+            >
+              +
+            </button>
             <span style={{ color: "rgba(0,255,136,0.5)", fontFamily: "monospace", fontSize: 13, lineHeight: "24px", paddingBottom: 2 }}>
               ❯
             </span>
