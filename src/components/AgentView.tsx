@@ -84,8 +84,11 @@ export function AgentView({
         bytes: msg.length,
         attachments: attachmentIds?.length ?? 0,
       });
-      // Feedback otimista: empurra user_input localmente com anexos (será reconciliado com eco)
-      appendLocal("user_input", msg, { attachments });
+      // Remove markup de imagens para exibir texto limpo na aba Chat
+      // (o markup [Imagem N: ...] é para o agente, não para o display)
+      const displayText = msg.replace(/\n\n\[Imagem \d+:[^\n]*\]\nComentário:[^\n]*/g, "").trim();
+      // Feedback otimista: empurra user_input localmente com texto limpo
+      appendLocal("user_input", displayText, { attachments });
       try {
         await onSendMessage(msg, attachmentIds ? { attachmentIds } : undefined);
         console.log("[AgentView] mensagem enviada com sucesso", { session });
