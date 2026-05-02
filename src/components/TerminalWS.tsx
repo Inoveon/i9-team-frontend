@@ -253,15 +253,29 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     reader.readAsDataURL(file);
   }, []);
 
+  // Paste global — captura imagens independente de qual elemento tem foco
+  useEffect(() => {
+    if (!showInput) return;
+    const onDocPaste = (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imageItems = items.filter(i => i.type.startsWith("image/"));
+      if (imageItems.length === 0) return;
+      e.preventDefault();
+      imageItems.forEach(item => {
+        const file = item.getAsFile();
+        if (file) addImageFile(file);
+      });
+    };
+    document.addEventListener("paste", onDocPaste);
+    return () => document.removeEventListener("paste", onDocPaste);
+  }, [showInput, addImageFile]);
+
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = Array.from(e.clipboardData.items);
-    const imageItem = items.find(item => item.type.startsWith("image/"));
-    if (!imageItem) return;
-    e.preventDefault();
-    const file = imageItem.getAsFile();
-    if (!file) return;
-    addImageFile(file);
-  }, [addImageFile]);
+    const hasImage = items.some(i => i.type.startsWith("image/"));
+    // Imagens já tratadas pelo listener global — só previne default aqui
+    if (hasImage) e.preventDefault();
+  }, []);
 
   const buildMessage = useCallback((text: string, atts: Attachment[]) => {
     let msg = text.trim();
