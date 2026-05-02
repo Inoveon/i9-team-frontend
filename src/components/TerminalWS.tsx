@@ -253,10 +253,14 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     reader.readAsDataURL(file);
   }, []);
 
-  // Paste global — captura imagens independente de qual elemento tem foco
+  const inputAreaRef = useRef<HTMLFormElement>(null);
+
+  // Paste global — só processa se o foco estiver dentro deste terminal
   useEffect(() => {
     if (!showInput) return;
     const onDocPaste = (e: ClipboardEvent) => {
+      // Ignorar se o foco não está dentro desta área de input
+      if (!inputAreaRef.current?.contains(document.activeElement)) return;
       const items = Array.from(e.clipboardData?.items ?? []);
       const imageItems = items.filter(i => i.type.startsWith("image/"));
       if (imageItems.length === 0) return;
@@ -449,6 +453,7 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
 
       {showInput && (
         <form
+          ref={inputAreaRef}
           onSubmit={(e) => {
             e.preventDefault();
             const val = textareaRef.current?.value ?? "";
