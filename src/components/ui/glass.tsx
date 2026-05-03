@@ -154,18 +154,16 @@ export function RcDot({ status, className = '' }: RcDotProps) {
 
   const styles: Record<Exclude<RcStatus, 'unknown'>, React.CSSProperties> = {
     active: {
-      backgroundColor: '#ffffff',
-      boxShadow: '0 0 4px 1px rgba(255,255,255,0.4)',
-      opacity: 1,
+      backgroundColor: 'var(--neon-green)',
+      boxShadow: '0 0 6px 2px var(--neon-green-glow)',
     },
     reconnecting: {
-      backgroundColor: '#FFD60A',
-      boxShadow: '0 0 6px 2px rgba(255,214,10,0.5)',
+      backgroundColor: 'var(--neon-yellow)',
+      boxShadow: '0 0 6px 2px rgba(251,191,36,0.45)',
       animation: 'pulse 1.2s ease-in-out infinite',
     },
     disconnected: {
-      backgroundColor: '#888',
-      opacity: 0.3,
+      backgroundColor: 'rgba(238,240,248,0.15)',
     },
   };
 

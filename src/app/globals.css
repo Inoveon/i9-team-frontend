@@ -3,36 +3,49 @@
 @import "highlight.js/styles/github-dark.css";
 
 :root {
-  /* Background */
-  --bg: #080808;
+  /* ── Background ── */
+  --bg: #07090f;
+  --bg-mesh-1: radial-gradient(ellipse 80% 50% at 20% 10%, rgba(99, 102, 241, 0.10) 0%, transparent 60%);
+  --bg-mesh-2: radial-gradient(ellipse 60% 40% at 80% 80%, rgba(14, 165, 233, 0.08) 0%, transparent 55%);
+  --bg-mesh-3: radial-gradient(ellipse 50% 35% at 50% 50%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
 
-  /* Glass surfaces */
-  --glass-surface-1: rgba(255, 255, 255, 0.03);
-  --glass-surface-2: rgba(255, 255, 255, 0.06);
-  --glass-surface-3: rgba(255, 255, 255, 0.09);
+  /* ── Glass surfaces — frosted indigo-tinted ── */
+  --glass-surface-1: rgba(120, 130, 255, 0.04);
+  --glass-surface-2: rgba(120, 130, 255, 0.07);
+  --glass-surface-3: rgba(120, 130, 255, 0.11);
 
-  /* Glass borders */
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.14);
+  /* ── Glass borders ── */
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
 
-  /* Text */
-  --text-primary: #f0f0f0;
-  --text-secondary: rgba(240, 240, 240, 0.45);
-  --text-tertiary: rgba(240, 240, 240, 0.25);
+  /* ── Text ── */
+  --text-primary: #eef0f8;
+  --text-secondary: rgba(238, 240, 248, 0.50);
+  --text-tertiary: rgba(238, 240, 248, 0.28);
 
-  /* Accent */
-  --accent: #e0e0e0;
+  /* ── Accent ── */
+  --accent: #c7d2fe;
 
-  /* States */
-  --error: #ff453a;
-  --warning: #ffd60a;
+  /* ── Semantic neon — Apple-tinted glass palette ── */
+  --neon-green: #34d399;
+  --neon-green-glow: rgba(52, 211, 153, 0.35);
+  --neon-blue: #818cf8;
+  --neon-blue-glow: rgba(129, 140, 248, 0.35);
+  --neon-red: #f87171;
+  --neon-red-glow: rgba(248, 113, 113, 0.35);
+  --neon-yellow: #fbbf24;
+  --neon-purple: #a78bfa;
 
-  /* Legacy compat (used by existing components) */
-  --surface: rgba(255, 255, 255, 0.03);
-  --surface-2: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #f0f0f0;
-  --text-muted: rgba(240, 240, 240, 0.45);
+  /* ── States ── */
+  --error: #f87171;
+  --warning: #fbbf24;
+
+  /* ── Legacy compat ── */
+  --surface: rgba(120, 130, 255, 0.04);
+  --surface-2: rgba(120, 130, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #eef0f8;
+  --text-muted: rgba(238, 240, 248, 0.50);
 }
 
 * {
@@ -42,9 +55,11 @@
 html,
 body {
   background-color: var(--bg);
+  background-image: var(--bg-mesh-1), var(--bg-mesh-2), var(--bg-mesh-3);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Scrollbar */
@@ -65,20 +80,46 @@ body {
 
 /* Liquid glass utility */
 .glass {
-  backdrop-filter: blur(32px) saturate(160%) brightness(1.1);
+  backdrop-filter: blur(40px) saturate(180%) brightness(1.08);
+  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.08);
   border: 1px solid var(--glass-border);
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
-    0 8px 32px rgba(0, 0, 0, 0.6);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    0 8px 40px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Card: glass surface usada pelo TeamCard */
+.card {
+  backdrop-filter: blur(40px) saturate(180%) brightness(1.08);
+  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.08);
+  background-color: var(--glass-surface-2);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    0 8px 40px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 0 1px rgba(129, 140, 248, 0.18),
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    0 0 32px rgba(129, 140, 248, 0.08);
 }
 
 /* Keyframes */
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    box-shadow: 0 0 0 0 rgba(129, 140, 248, 0);
   }
   50% {
-    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 8px 3px rgba(129, 140, 248, 0.5);
   }
 }
 
@@ -123,21 +164,23 @@ body {
 
 /* Status dot glow */
 .dot-online {
-  background-color: #ffffff;
-  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6);
+  background-color: var(--neon-green);
+  box-shadow: 0 0 6px 2px var(--neon-green-glow);
 }
 
 .dot-working {
-  background-color: #ffffff;
+  background-color: var(--neon-blue);
+  box-shadow: 0 0 6px 2px var(--neon-blue-glow);
   animation: pulse-glow 1.4s ease-in-out infinite;
 }
 
 .dot-offline {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(238, 240, 248, 0.18);
 }
 
 .dot-error {
-  background-color: #ff453a;
+  background-color: var(--neon-red);
+  box-shadow: 0 0 4px 1px var(--neon-red-glow);
 }
 
 /* Estilizacao markdown renderizado nas Notas */

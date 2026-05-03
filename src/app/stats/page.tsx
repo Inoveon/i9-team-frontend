@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, BarChart2, Clock, Radio, Users } from 'lucide-react';
 import { GlassCard, LoadingShimmer } from '@/components/ui/glass';
 import { getBridgeStatus, getBridgeStats } from '@/lib/api';
@@ -62,7 +62,7 @@ interface VolumeChartProps {
 function VolumeChart({ data }: VolumeChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || data.length === 0) return;
     const ctx = canvas.getContext('2d');
@@ -71,6 +71,7 @@ function VolumeChart({ data }: VolumeChartProps) {
     const dpr = window.devicePixelRatio || 1;
     const W = canvas.offsetWidth;
     const H = canvas.offsetHeight;
+    if (W === 0 || H === 0) return;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.scale(dpr, dpr);
@@ -123,6 +124,15 @@ function VolumeChart({ data }: VolumeChartProps) {
       ctx.fillText(label, x, H - 8);
     });
   }, [data]);
+
+  useEffect(() => {
+    draw();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => draw());
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [draw]);
 
   return (
     <canvas
@@ -186,7 +196,7 @@ export default function StatsPage() {
             <>
               <KpiCard
                 label="Uptime"
-                value={status ? formatUptime(status.uptime_seconds) : '—'}
+                value={status ? formatUptime(status.uptime_seconds ?? 0) : '—'}
                 icon={<Clock size={16} strokeWidth={1.2} />}
               />
               <KpiCard

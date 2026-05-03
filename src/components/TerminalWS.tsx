@@ -302,9 +302,11 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
         if (att.serverPath) return att;
         try {
           const { path } = await uploadScreenshot(att.dataUrl);
+          console.log('[upload] OK:', path);
           return { ...att, serverPath: path };
-        } catch {
-          return att; // fallback: usa nome gerado
+        } catch (err) {
+          console.error('[upload] ERRO:', err);
+          return att;
         }
       })
     );
