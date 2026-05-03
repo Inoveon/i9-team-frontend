@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -46,7 +47,7 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span style={{ fontSize: 18 }}>📄</span>
+          <FileText size={16} aria-hidden="true" style={{ color: "var(--accent)" }} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
@@ -104,8 +105,8 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
             style={{
               padding: "6px 14px",
               borderRadius: 6,
-              border: "1px solid rgba(0,212,255,0.4)",
-              background: "rgba(0,212,255,0.06)",
+              border: "1px solid rgba(90, 200, 250, 0.4)",
+              background: "rgba(90, 200, 250, 0.06)",
               color: "var(--neon-blue)",
               fontSize: 11,
               fontWeight: 700,
@@ -116,7 +117,7 @@ export function NoteViewer({ note, onEdit, onDelete }: NoteViewerProps) {
               transition: "all 0.15s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = "0 0 14px rgba(0,212,255,0.25)";
+              e.currentTarget.style.boxShadow = "0 0 14px rgba(90, 200, 250, 0.25)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = "none";

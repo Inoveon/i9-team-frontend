@@ -20,13 +20,13 @@ interface ToastStackProps {
 
 const KIND_COLORS: Record<ToastKind, { bg: string; border: string; fg: string }> = {
   info: {
-    bg: "rgba(0,212,255,0.08)",
-    border: "rgba(0,212,255,0.4)",
+    bg: "rgba(90, 200, 250, 0.08)",
+    border: "rgba(90, 200, 250, 0.4)",
     fg: "var(--neon-blue)",
   },
   success: {
-    bg: "rgba(0,255,136,0.08)",
-    border: "rgba(0,255,136,0.4)",
+    bg: "rgba(34, 197, 94, 0.08)",
+    border: "rgba(34, 197, 94, 0.4)",
     fg: "var(--neon-green)",
   },
   error: {

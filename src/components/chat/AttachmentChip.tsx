@@ -35,8 +35,8 @@ export function AttachmentChip({ attachment, onRemove, disabled }: AttachmentChi
   const borderColor = isError
     ? "rgba(255,56,100,0.6)"
     : isUploaded
-    ? "rgba(0,255,136,0.45)"
-    : "rgba(0,212,255,0.3)";
+    ? "rgba(34, 197, 94, 0.45)"
+    : "rgba(90, 200, 250, 0.3)";
 
   const title = isError
     ? `Erro: ${error ?? "upload falhou"}`
@@ -96,7 +96,7 @@ export function AttachmentChip({ attachment, onRemove, disabled }: AttachmentChi
               height: 20,
               borderRadius: "50%",
               border: "2px solid rgba(255,255,255,0.2)",
-              borderTopColor: "var(--neon-blue, #00d4ff)",
+              borderTopColor: "var(--neon-blue, var(--accent))",
               animation: "spin 0.8s linear infinite",
             }}
           />

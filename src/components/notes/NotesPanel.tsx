@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { FileText } from "lucide-react";
 import { NotesList } from "./NotesList";
 import { NoteViewer } from "./NoteViewer";
 import { NoteEditor } from "./NoteEditor";
@@ -331,7 +332,12 @@ export function NotesPanel({ teamId }: NotesPanelProps) {
                   textAlign: "center",
                 }}
               >
-                <span style={{ fontSize: 36, opacity: 0.3 }}>📄</span>
+                <FileText
+                  size={36}
+                  strokeWidth={1.5}
+                  style={{ opacity: 0.35, color: "var(--text-tertiary)" }}
+                  aria-hidden="true"
+                />
                 <div style={{ fontSize: 13 }}>
                   {notes.length === 0
                     ? "Nenhuma nota ainda"
@@ -344,8 +350,8 @@ export function NotesPanel({ teamId }: NotesPanelProps) {
                       marginTop: 8,
                       padding: "8px 16px",
                       borderRadius: 8,
-                      border: "1px solid rgba(0,255,136,0.4)",
-                      background: "rgba(0,255,136,0.06)",
+                      border: "1px solid rgba(34, 197, 94, 0.4)",
+                      background: "rgba(34, 197, 94, 0.06)",
                       color: "var(--neon-green)",
                       fontSize: 12,
                       fontWeight: 700,

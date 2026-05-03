@@ -4,6 +4,78 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 import { getAuthToken, uploadScreenshot } from "@/lib/api";
 import { getWsBase } from "@/lib/runtime-config";
+import { useAttachment } from "@/hooks/useAttachment";
+import { AttachmentChip } from "./chat/AttachmentChip";
+import { MenuDialog } from "./MenuDialog";
+import {
+  ALLOWED_MIMES,
+  MAX_ATTACHMENTS,
+  extractFilesFromClipboard,
+  type EventAttachment,
+} from "@/lib/chat-attachments";
+
+/**
+ * Mapeia `KeyboardEvent` do browser pra notação `tmux send-keys`.
+ *
+ * Formato tmux:
+ *   - Modificadores: `C-` (Ctrl), `M-` (Alt/Meta), `S-` (Shift) — combinam.
+ *   - Keys nomeadas: Up, Down, Left, Right, Enter, Escape, Tab, BSpace,
+ *     Delete, Home, End, PageUp, PageDown, Space.
+ *   - Letras simples: lowercase ('a', 'b', 'A' vira 'a' com S-? não — tmux
+ *     trata maiúscula como literal).
+ *
+ * Retorna `null` quando não dá pra mapear (Shift/Ctrl/Alt sozinhos, etc).
+ */
+// Alias pro KeyboardEvent nativo do DOM (`KeyboardEvent` de cima é o do React).
+type DOMKeyboardEvent = globalThis.KeyboardEvent;
+
+function mapEventToTmuxKey(e: DOMKeyboardEvent): string | null {
+  const k = e.key;
+
+  // Ignora modificadores sozinhos (apenas Shift, Ctrl, Alt, Meta apertados)
+  if (
+    k === "Shift" ||
+    k === "Control" ||
+    k === "Alt" ||
+    k === "Meta"
+  ) {
+    return null;
+  }
+
+  let prefix = "";
+  if (e.ctrlKey) prefix += "C-";
+  if (e.metaKey) prefix += "C-"; // Cmd no mac → trata como Ctrl
+  if (e.altKey) prefix += "M-";
+  // Shift só é prefixado pra teclas nomeadas (não-letras)
+  if (e.shiftKey && k.length > 1) prefix += "S-";
+
+  const namedMap: Record<string, string> = {
+    ArrowUp: "Up",
+    ArrowDown: "Down",
+    ArrowLeft: "Left",
+    ArrowRight: "Right",
+    Enter: "Enter",
+    Escape: "Escape",
+    Tab: "Tab",
+    Backspace: "BSpace",
+    Delete: "Delete",
+    Home: "Home",
+    End: "End",
+    PageUp: "PageUp",
+    PageDown: "PageDown",
+    " ": "Space",
+  };
+
+  if (namedMap[k]) return prefix + namedMap[k];
+
+  // Letra/número/símbolo simples (1 caractere)
+  if (k.length === 1) {
+    if (prefix) return prefix + k.toLowerCase();
+    return k; // sem mods: manda literal (preserva caso)
+  }
+
+  return null;
+}
 
 interface MenuOption {
   index: number;
@@ -13,6 +85,13 @@ interface MenuOption {
 export interface InteractiveMenu {
   options: MenuOption[];
   currentIndex: number;
+}
+
+type WSState = "connecting" | "open" | "closing" | "closed";
+
+export interface TerminalSendExtras {
+  attachmentIds?: string[];
+  attachments?: EventAttachment[];
 }
 
 interface TerminalProps {
@@ -103,11 +182,111 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
+  // ── Input bar state ──────────────────────────────────────────────────
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [wsState, setWsState] = useState<WSState>("connecting");
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const lastOutputAtRef = useRef<number>(0);
+
+  // ── Scroll-to-bottom FAB (Issue #12) ────────────────────────────────
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const scrollTerminalToBottom = useCallback(() => {
+    termRef.current?.scrollToBottom();
+    setShowScrollBottom(false);
+  }, []);
+
+  // ── Terminal Mode (Task `nav-buttons-terminal-mode`) ────────────────
+  // Quando ativo, captura todas as teclas no xterm e envia ao tmux como
+  // `key_event` via WS (em vez de processar localmente). Persiste por
+  // sessão no localStorage.
+  const tmKey = `portal-terminal-mode-${session}`;
+  const [terminalMode, setTerminalMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(tmKey) === "true";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(tmKey, String(terminalMode));
+  }, [terminalMode, tmKey]);
+
+  // Envia tecla nomeada (Up/Down/Enter/Escape/etc) via key_event.
+  // Backend traduz pra `tmux send-keys SESSION <key>`.
+  const sendKeyEvent = useCallback((key: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[TerminalWS] sendKeyEvent: WS não OPEN", { key });
+      return;
+    }
+    ws.send(JSON.stringify({ type: "key_event", key }));
+  }, []);
+
+  // Toggle stdin do xterm conforme Terminal Mode.
+  // Quando ativo, instala custom key handler que intercepta keydown e manda
+  // `key_event` via WS (em vez de deixar xterm processar localmente).
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+
+    if (terminalMode) {
+      // Permite stdin no xterm (default era disableStdin: true)
+      try {
+        term.options.disableStdin = false;
+      } catch {
+        /* algumas versões do xterm são read-only no options */
+      }
+      term.attachCustomKeyEventHandler((event) => {
+        if (event.type !== "keydown") return false;
+        const key = mapEventToTmuxKey(event);
+        if (key) sendKeyEvent(key);
+        return false; // xterm NÃO processa — já mandamos via WS
+      });
+      // Foco no xterm pra capturar teclas
+      try {
+        term.focus();
+      } catch {
+        /* noop */
+      }
+    } else {
+      // Restaura comportamento padrão (xterm processa tudo)
+      try {
+        term.options.disableStdin = true;
+      } catch {
+        /* noop */
+      }
+      term.attachCustomKeyEventHandler(() => true);
+    }
+  }, [terminalMode, sendKeyEvent]);
+
+  // ── Attachments ──────────────────────────────────────────────────────
+  const {
+    attachments,
+    addFiles,
+    removeAttachment,
+    clearAttachments,
+    hasUploading,
+    uploadedCount,
+    hasAttachments,
+    collectUploaded,
+  } = useAttachment(teamId, { onValidationError });
+
+  const canAttach = !!teamId && !sending;
+  const canSend =
+    !sending &&
+    !hasUploading &&
+    wsState === "open" &&
+    (!!draft.trim() || uploadedCount > 0);
+
   // Sync menuRef whenever menu state changes (accessible inside WS closures)
-  useEffect(() => { menuRef.current = menu; }, [menu]);
+  useEffect(() => {
+    menuRef.current = menu;
+  }, [menu]);
 
   useEffect(() => {
     let cleanupObserver: (() => void) | undefined;
+    let pingTimer: ReturnType<typeof setInterval> | undefined;
+    let pingSentAt = 0;
 
     async function init() {
       const { Terminal: XTerm } = await import("@xterm/xterm");
@@ -116,19 +295,31 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
 
       if (!containerRef.current) return;
 
+      // Liquid Glass xterm theme — Apple dark Sonoma
       const term = new XTerm({
         theme: {
-          background: "#0a0a0a",
-          foreground: "#00ff88",
-          cursor: "#00d4ff",
-          cursorAccent: "#0a0a0a",
-          selectionBackground: "#1a2a1a",
-          black: "#0a0a0a",
-          brightBlack: "#1a2a1a",
-          cyan: "#00d4ff",
-          brightCyan: "#00eeff",
-          green: "#00ff88",
-          brightGreen: "#39ff99",
+          background: "#0a0e17", // var(--bg-deep)
+          foreground: "rgba(255,255,255,0.92)", // var(--text-primary)
+          cursor: "#5ac8fa", // var(--accent)
+          cursorAccent: "#0a0e17",
+          selectionBackground: "rgba(90,200,250,0.25)",
+          black: "#0a0e17",
+          brightBlack: "#1a2230",
+          // ANSI cyan/green/etc — paleta Apple dark
+          cyan: "#5ac8fa",
+          brightCyan: "#7dd9fc",
+          green: "#22c55e",
+          brightGreen: "#4ade80",
+          red: "#ef4444",
+          brightRed: "#f87171",
+          yellow: "#eab308",
+          brightYellow: "#facc15",
+          blue: "#5ac8fa",
+          brightBlue: "#7dd9fc",
+          magenta: "#a78bfa",
+          brightMagenta: "#c4b5fd",
+          white: "rgba(255,255,255,0.85)",
+          brightWhite: "rgba(255,255,255,0.95)",
         },
         fontFamily: '"JetBrains Mono", "Fira Code", monospace',
         fontSize: 12,
@@ -165,20 +356,41 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
 
       // WebSocket — token via query param (browser não suporta headers em WS)
       let token = "";
-      try { token = await getAuthToken(); } catch { /* sem token */ }
+      try {
+        token = await getAuthToken();
+      } catch {
+        /* sem token */
+      }
       const WS_URL = getWsBase();
-      const wsUrl = token ? `${WS_URL}/ws?token=${encodeURIComponent(token)}` : `${WS_URL}/ws`;
+      const wsUrl = token
+        ? `${WS_URL}/ws?token=${encodeURIComponent(token)}`
+        : `${WS_URL}/ws`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
+      setWsState("connecting");
 
       ws.onopen = () => {
         console.log("[TerminalWS] WS OPEN — sessão:", session);
+        setWsState("open");
         ws.send(JSON.stringify({ type: "subscribe", session }));
         setTimeout(() => {
           fitAddon.fit();
           ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }, 100);
         term.writeln(`\x1b[36m[i9-team] Conectado — sessão: ${session}\x1b[0m`);
+        // Latência: ping a cada 10s — backend pode não responder, mas
+        // medimos ack do subscribe (primeira mensagem) como proxy inicial
+        pingSentAt = Date.now();
+        pingTimer = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            pingSentAt = Date.now();
+            try {
+              ws.send(JSON.stringify({ type: "ping" }));
+            } catch {
+              /* socket pode ter fechado entre o check e o send */
+            }
+          }
+        }, 10_000);
       };
 
       ws.onmessage = (event) => {
@@ -191,8 +403,14 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
             currentIndex?: number;
             hasMenu?: boolean;
           };
+          // Latência aproximada: qualquer ack após ping
+          if (msg.type === "pong" || msg.type === "subscribed") {
+            const delta = Date.now() - pingSentAt;
+            if (delta > 0 && delta < 60_000) setLatencyMs(delta);
+          }
           switch (msg.type) {
             case "output":
+              lastOutputAtRef.current = Date.now();
               if (msg.hasMenu) {
                 noMenuCountRef.current = 0;
                 // Não re-renderiza enquanto há menu — evita conflito visual
@@ -202,15 +420,26 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
                   const normalized = msg.data.replace(/\r?\n/g, "\r\n");
                   term.write("\x1b[2J\x1b[H" + normalized);
                 }
-                if (noMenuCountRef.current >= 2) { setMenu(null); onMenuChange?.(session, null); }
+                if (noMenuCountRef.current >= 2) {
+                  setMenu(null);
+                  onMenuChange?.(session, null);
+                }
               }
               break;
             case "interactive_menu":
+              // Abertura automática do MenuDialog DESABILITADA por decisão
+              // de UX (2026-04-27). User prefere usar botões nav (← ↑ ↓ →
+              // ⏎ ✕) e Terminal Mode pra interagir manualmente. Mantemos o
+              // componente MenuDialog importado/montado pra reuso futuro
+              // (caso queira restaurar ou abrir manualmente).
               noMenuCountRef.current = 0;
               if (msg.options?.length) {
-                const m = { options: msg.options, currentIndex: msg.currentIndex ?? 1 };
-                setMenu(m);
-                onMenuChange?.(session, m);
+                console.debug("[TerminalWS] interactive_menu detectado", {
+                  session,
+                  options: msg.options.length,
+                  currentIndex: msg.currentIndex,
+                });
+                // setMenu(m); onMenuChange?.(session, m);  // ← intencionalmente desativado
               }
               break;
           }
@@ -221,10 +450,12 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
 
       ws.onclose = () => {
         console.log("[TerminalWS] WS CLOSED — sessão:", session);
+        setWsState("closed");
         term.writeln("\x1b[33m[i9-team] Conexão encerrada\x1b[0m");
       };
 
       ws.onerror = () => {
+        setWsState("closed");
         term.writeln("\x1b[31m[i9-team] Erro de conexão WebSocket\x1b[0m");
       };
     }
@@ -232,11 +463,12 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
     void init();
 
     return () => {
+      if (pingTimer) clearInterval(pingTimer);
       cleanupObserver?.();
       wsRef.current?.close();
       termRef.current?.dispose();
     };
-  }, [session]);
+  }, [session, onMenuChange]);
 
   const scrollToBottom = useCallback(() => {
     termRef.current?.scrollToBottom();
@@ -324,17 +556,113 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
   function selectOption(index: number) {
     const ws = wsRef.current;
     const state = ws?.readyState;
-    const stateLabel = ["CONNECTING","OPEN","CLOSING","CLOSED"][state ?? 3];
-    console.log("[TerminalWS] selectOption clicked", { index, session, state: stateLabel, wsExists: !!ws });
+    const stateLabel = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][state ?? 3];
+    console.log("[TerminalWS] selectOption clicked", {
+      index,
+      session,
+      state: stateLabel,
+      wsExists: !!ws,
+    });
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn("[TerminalWS] WS não está OPEN — descartando select_option. State:", stateLabel);
+      console.warn(
+        "[TerminalWS] WS não está OPEN — descartando select_option. State:",
+        stateLabel
+      );
       return;
     }
-    const payload = JSON.stringify({ type: "select_option", session, value: String(index), currentIndex: menuRef.current?.currentIndex ?? 1 });
+    const payload = JSON.stringify({
+      type: "select_option",
+      session,
+      value: String(index),
+      currentIndex: menuRef.current?.currentIndex ?? 1,
+    });
     console.log("[TerminalWS] enviando →", payload);
     ws.send(payload);
     setMenu(null);
+    onMenuChange?.(session, null);
   }
+
+  // ── Send handler (usa onSendMessage REST se disponível) ──────────────
+  const handleSend = useCallback(async () => {
+    if (!canSend) return;
+    const msg = draft;
+    const { attachmentIds, eventAttachments } = collectUploaded();
+
+    setSending(true);
+    setDraft("");
+
+    try {
+      if (onSendMessage) {
+        await onSendMessage(
+          msg,
+          attachmentIds.length > 0
+            ? { attachmentIds, attachments: eventAttachments }
+            : undefined
+        );
+      } else {
+        // Fallback: input cru via WS (sem suporte a anexos nesse caminho)
+        sendInputViaWS(msg);
+      }
+      clearAttachments();
+    } catch (err) {
+      console.error("[TerminalWS] falha ao enviar mensagem", { session, err });
+      // Restaura o draft pra usuário tentar novamente
+      setDraft(msg);
+    } finally {
+      setSending(false);
+      // requestAnimationFrame: aguarda o React re-renderizar e remover
+      // `disabled={sending}` do textarea — focus() em elemento disabled é
+      // ignorado pelos browsers e o cursor "perdia" o foco.
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
+  }, [
+    canSend,
+    draft,
+    collectUploaded,
+    onSendMessage,
+    clearAttachments,
+    session,
+  ]);
+
+  // ── Attachments handlers ────────────────────────────────────────────
+  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!canAttach) return;
+    const files = extractFilesFromClipboard(e.clipboardData);
+    if (files.length > 0) {
+      e.preventDefault();
+      addFiles(files);
+    }
+  };
+
+  const onFilePick = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) addFiles(files);
+    e.target.value = "";
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    // Enter envia; Shift+Enter quebra linha
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
+
+  // ── Status bar derived values ───────────────────────────────────────
+  const wsLabel = wsState.toUpperCase();
+  const latencyLabel =
+    latencyMs == null
+      ? "—"
+      : latencyMs < 1000
+        ? `${latencyMs}ms`
+        : `${(latencyMs / 1000).toFixed(1)}s`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: height ? undefined : 1, minHeight: 0, height: height ? undefined : 0, overflow: "hidden" }}>
@@ -353,8 +681,10 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
           ref={containerRef}
           style={{
             height: "100%",
-            backgroundColor: "#0a0a0a",
-            borderRadius: showInput ? "8px 8px 0 0" : 8,
+            backgroundColor: "var(--bg-deep)",
+            borderRadius: showInput
+              ? "var(--radius-md) var(--radius-md) 0 0"
+              : "var(--radius-md)",
             overflow: "hidden",
             border: "1px solid rgba(0, 255, 136, 0.2)",
             borderBottom: showInput ? "none" : "1px solid rgba(0, 255, 136, 0.2)",
@@ -468,6 +798,19 @@ export function Terminal({ session, height, showInput = false, initialMenu = nul
           </div>
         )}
       </div>
+
+      {/* Modal Liquid Glass de menu interativo (Task 16). Renderizado via Portal,
+          fora do flow do terminal — backdrop cobre tudo e desfoca a UI atrás. */}
+      <MenuDialog
+        open={!!menu}
+        options={menu?.options ?? []}
+        currentIndex={menu?.currentIndex ?? 1}
+        onSelect={(idx) => selectOption(idx)}
+        onClose={() => {
+          setMenu(null);
+          onMenuChange?.(session, null);
+        }}
+      />
 
       {showInput && (
         <form

@@ -170,7 +170,7 @@ export function ImageUpload({ session, onUpload, collapsed: initialCollapsed = t
               padding: "20px 12px",
               textAlign: "center",
               cursor: "pointer",
-              background: dragging ? "rgba(0,212,255,0.05)" : "transparent",
+              background: dragging ? "rgba(90, 200, 250, 0.05)" : "transparent",
               transition: "border-color 0.15s, background 0.15s",
               fontSize: 12,
               color: "var(--text-muted)",
@@ -272,7 +272,7 @@ export function ImageUpload({ session, onUpload, collapsed: initialCollapsed = t
                         padding: "5px 12px",
                         borderRadius: 6,
                         border: "1px solid var(--neon-blue)",
-                        background: "rgba(0,212,255,0.08)",
+                        background: "rgba(90, 200, 250, 0.08)",
                         color: "var(--neon-blue)",
                         fontSize: 11,
                         fontWeight: 600,
@@ -281,8 +281,8 @@ export function ImageUpload({ session, onUpload, collapsed: initialCollapsed = t
                         fontFamily: "monospace",
                         transition: "background 0.15s",
                       }}
-                      onMouseEnter={(e) => { if (!sending) e.currentTarget.style.background = "rgba(0,212,255,0.16)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,212,255,0.08)"; }}
+                      onMouseEnter={(e) => { if (!sending) e.currentTarget.style.background = "rgba(90, 200, 250, 0.16)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(90, 200, 250, 0.08)"; }}
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                       {sending ? "Enviando..." : "Enviar para o agente"}

@@ -32,29 +32,42 @@ export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardPr
       {/* Card inteiro clicável */}
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12, position: "relative", zIndex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+          marginBottom: 12,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{
-            fontSize: 11,
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            marginBottom: 4,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}>
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--text-tertiary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {team.project}
           </p>
           <span
             style={{
               fontSize: 18,
               fontWeight: 700,
-              color: "var(--neon-blue)",
+              color: "var(--accent)",
               display: "block",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              letterSpacing: "-0.01em",
             }}
           >
             {team.name}
@@ -67,16 +80,20 @@ export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardPr
 
       {/* Description */}
       {team.description && (
-        <p style={{ position: "relative", zIndex: 1,
-          fontSize: 12,
-          color: "var(--text-muted)",
-          marginBottom: 14,
-          lineHeight: 1.5,
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}>
+        <p
+          style={{
+            position: "relative",
+            zIndex: 1,
+            fontSize: 12,
+            color: "var(--text-secondary)",
+            marginBottom: 14,
+            lineHeight: 1.5,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
           {team.description}
         </p>
       )}
@@ -112,8 +129,16 @@ export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardPr
       </div>
 
       {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", zIndex: 1 }}>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
           {runningAgents}/{team.agents.length} ativos
         </span>
 
@@ -123,13 +148,20 @@ export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardPr
               onClick={(e) => { e.stopPropagation(); onStop(team.id); }}
               style={{
                 padding: "6px 16px",
-                borderRadius: 8,
-                border: "1px solid var(--neon-red, #ff3864)",
-                background: "transparent",
-                color: "var(--neon-red, #ff3864)",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid rgba(239, 68, 68, 0.45)",
+                background: "rgba(239, 68, 68, 0.08)",
+                color: "var(--status-error)",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.16)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
               }}
             >
               Stop
@@ -139,13 +171,20 @@ export function TeamCard({ team, onStart, onStop, rcStatusMap = {} }: TeamCardPr
               onClick={(e) => { e.stopPropagation(); onStart(team.id); }}
               style={{
                 padding: "6px 16px",
-                borderRadius: 8,
-                border: "1px solid var(--neon-green)",
-                background: "transparent",
-                color: "var(--neon-green)",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid rgba(34, 197, 94, 0.45)",
+                background: "rgba(34, 197, 94, 0.08)",
+                color: "var(--status-success)",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(34, 197, 94, 0.16)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(34, 197, 94, 0.08)";
               }}
             >
               Start

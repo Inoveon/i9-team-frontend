@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -70,7 +71,7 @@ export function NoteEditor({ note, onSave, onCancel, saving }: NoteEditorProps) 
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span style={{ fontSize: 18 }}>✏️</span>
+          <Pencil size={16} aria-hidden="true" style={{ color: "#a78bfa" }} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
@@ -126,9 +127,9 @@ export function NoteEditor({ note, onSave, onCancel, saving }: NoteEditorProps) 
             style={{
               padding: "6px 16px",
               borderRadius: 6,
-              border: "1px solid rgba(0,255,136,0.4)",
-              background: dirty ? "rgba(0,255,136,0.1)" : "transparent",
-              color: dirty && !saving ? "var(--neon-green)" : "rgba(0,255,136,0.3)",
+              border: "1px solid rgba(34, 197, 94, 0.4)",
+              background: dirty ? "rgba(34, 197, 94, 0.1)" : "transparent",
+              color: dirty && !saving ? "var(--neon-green)" : "rgba(34, 197, 94, 0.3)",
               fontSize: 11,
               fontWeight: 700,
               fontFamily: '"JetBrains Mono", monospace',
@@ -137,7 +138,7 @@ export function NoteEditor({ note, onSave, onCancel, saving }: NoteEditorProps) 
               cursor: saving || !dirty ? "not-allowed" : "pointer",
               transition: "all 0.15s",
               boxShadow:
-                dirty && !saving ? "0 0 14px rgba(0,255,136,0.2)" : "none",
+                dirty && !saving ? "0 0 14px rgba(34, 197, 94, 0.2)" : "none",
             }}
           >
             {saving ? "Salvando..." : "Salvar"}

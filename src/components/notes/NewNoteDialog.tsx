@@ -103,12 +103,12 @@ export function NewNoteDialog({
             transition={{ duration: 0.2 }}
             style={{
               background: "var(--surface)",
-              border: "1px solid rgba(0,212,255,0.25)",
+              border: "1px solid rgba(90, 200, 250, 0.25)",
               borderRadius: 12,
               padding: 24,
               width: "100%",
               maxWidth: 520,
-              boxShadow: "0 0 40px rgba(0,212,255,0.15)",
+              boxShadow: "0 0 40px rgba(90, 200, 250, 0.15)",
             }}
           >
             <div
@@ -195,7 +195,7 @@ export function NewNoteDialog({
                 marginBottom: 14,
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = "rgba(0,212,255,0.4)";
+                e.currentTarget.style.borderColor = "rgba(90, 200, 250, 0.4)";
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
@@ -283,11 +283,11 @@ export function NewNoteDialog({
                 style={{
                   padding: "8px 18px",
                   borderRadius: 6,
-                  border: "1px solid rgba(0,255,136,0.4)",
-                  background: "rgba(0,255,136,0.08)",
+                  border: "1px solid rgba(34, 197, 94, 0.4)",
+                  background: "rgba(34, 197, 94, 0.08)",
                   color:
                     submitting || !name.trim()
-                      ? "rgba(0,255,136,0.3)"
+                      ? "rgba(34, 197, 94, 0.3)"
                       : "var(--neon-green)",
                   fontSize: 12,
                   fontWeight: 700,
@@ -298,7 +298,7 @@ export function NewNoteDialog({
                     submitting || !name.trim() ? "not-allowed" : "pointer",
                   boxShadow:
                     !submitting && name.trim()
-                      ? "0 0 14px rgba(0,255,136,0.2)"
+                      ? "0 0 14px rgba(34, 197, 94, 0.2)"
                       : "none",
                 }}
               >

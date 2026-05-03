@@ -67,8 +67,8 @@ export function NotesList({
             flex: 1,
             padding: "8px 12px",
             borderRadius: 8,
-            border: "1px solid rgba(0,255,136,0.4)",
-            background: "rgba(0,255,136,0.06)",
+            border: "1px solid rgba(34, 197, 94, 0.4)",
+            background: "rgba(34, 197, 94, 0.06)",
             color: "var(--neon-green)",
             fontSize: 12,
             fontWeight: 700,
@@ -78,7 +78,7 @@ export function NotesList({
             transition: "all 0.15s",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "0 0 16px rgba(0,255,136,0.25)";
+            e.currentTarget.style.boxShadow = "0 0 16px rgba(34, 197, 94, 0.25)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.boxShadow = "none";
@@ -194,15 +194,15 @@ export function NotesList({
                   padding: "10px 12px",
                   borderRadius: 8,
                   border: isActive
-                    ? "1px solid rgba(0,212,255,0.5)"
+                    ? "1px solid rgba(90, 200, 250, 0.5)"
                     : "1px solid rgba(255,255,255,0.04)",
                   background: isActive
-                    ? "rgba(0,212,255,0.08)"
+                    ? "rgba(90, 200, 250, 0.08)"
                     : "rgba(255,255,255,0.02)",
                   color: isActive ? "var(--neon-blue)" : "var(--text)",
                   cursor: "pointer",
                   transition: "all 0.15s",
-                  boxShadow: isActive ? "0 0 14px rgba(0,212,255,0.15)" : "none",
+                  boxShadow: isActive ? "0 0 14px rgba(90, 200, 250, 0.15)" : "none",
                   display: "flex",
                   flexDirection: "column",
                   gap: 4,

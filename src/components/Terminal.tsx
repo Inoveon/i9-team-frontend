@@ -30,12 +30,12 @@ export function Terminal({ lines, height }: TerminalProps) {
 
       term = new XTerm({
         theme: {
-          background: "#080b14",
-          foreground: "#00d4ff",
-          cursor: "#00d4ff",
-          selectionBackground: "#1e2a3a",
-          black: "#080b14",
-          brightBlack: "#1e2a3a",
+          background: "#0a0e17",
+          foreground: "var(--accent)",
+          cursor: "var(--accent)",
+          selectionBackground: "#1a2230",
+          black: "#0a0e17",
+          brightBlack: "#1a2230",
         },
         fontFamily: '"JetBrains Mono", "Fira Code", monospace',
         fontSize: 12,
@@ -86,7 +86,7 @@ export function Terminal({ lines, height }: TerminalProps) {
         height: isFlex ? undefined : height,
         flex: isFlex ? 1 : undefined,
         minHeight: 0,
-        backgroundColor: "#080b14",
+        backgroundColor: "#0a0e17",
         borderRadius: 8,
         overflow: "hidden",
         border: "1px solid var(--border)",
