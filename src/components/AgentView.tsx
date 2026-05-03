@@ -1,55 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { RefreshCw, FileText } from "lucide-react";
-import { Terminal, type TerminalSendExtras } from "./TerminalWS";
-import { StatusBadge } from "./StatusBadge";
-import { AgentContextDialog } from "./AgentContextDialog";
-import type { AgentStatus } from "@/types";
-
-/**
- * AgentView — Card auto-suficiente do agente: header (nome + role + status +
- * ações) + terminal real-time + input bar.
- *
- * Cadeia de altura (Task `portal-fix-layout-altura`):
- *   pai (flex column 100%) → AgentView (`.agent-frame` flex column)
- *     → header (flex-shrink:0)
- *     → terminal (flex:1 + min-height:0)  ← preenche espaço restante
- *     → input bar (flex-shrink:0, dentro do TerminalWS)
- *
- * Header (Task `portal-ux-scroll-headers-context-lucide`):
- *   - nome + role + StatusBadge
- *   - botão ⟳ Refresh: força re-mount do <Terminal> (via `reconnectKey` na
- *     `key` prop) — fecha WS e reconecta sem F5.
- *   - botão FileText (Context): abre `AgentContextDialog` carregando o agent-context.md
- *     do agente via REST.
- */
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Terminal } from "./TerminalWS";
+import { ChatTimeline, type ChatTimelineHandle } from "./chat/ChatTimeline";
+import { ChatInput, type ChatInputSendExtras } from "./chat/ChatInput";
+import { NewMessagesPill } from "./chat/NewMessagesPill";
+import { ToastStack } from "./notes/NotesToast";
+import { useMessageStream } from "@/hooks/useMessageStream";
+import { useToasts } from "@/hooks/useToasts";
 
 interface AgentViewProps {
   session: string;
   /**
-   * Altura fixa em px. Se omitido → modo **flex** (ocupa o espaço disponível
-   * do container pai, que precisa ser `display:flex flexDirection:column`).
+   * Altura fixa em px. Se omitido → modo flex (ocupa o espaço disponível
+   * do container pai, que precisa ser display:flex flexDirection:column).
    */
   height?: number;
   showInput?: boolean;
   onSendMessage?: (
     message: string,
-    opts?: TerminalSendExtras
+    opts?: { attachmentIds?: string[] }
   ) => void | Promise<void>;
-  /** Team ID — necessário para uploads de anexo + carregar contexto via REST. */
+  /** Team ID necessário para uploads de anexo (POST /upload/image?teamId=...) */
   teamId?: string;
-
-  // ── Header opcional ──────────────────────────────────────────────────
-  /** Nome do agente exibido no header. Quando omitido, header é ocultado. */
-  agentName?: string;
-  /** "orchestrator" | "worker" — controla cor do nome no header */
-  agentRole?: "orchestrator" | "worker";
-  /** Status do agente — exibe StatusBadge no header */
-  agentStatus?: AgentStatus;
-  /** Liga estilo glass card no wrapper (`.agent-frame`). Default: true */
-  framed?: boolean;
 }
+
+type Tab = "terminal" | "chat";
 
 export function AgentView({
   session,
@@ -57,39 +33,55 @@ export function AgentView({
   showInput = false,
   onSendMessage,
   teamId,
-  agentName,
-  agentRole,
-  agentStatus,
-  framed = true,
 }: AgentViewProps) {
   const isFlex = height === undefined;
-  const showHeader = !!agentName;
+  const [tab, setTab] = useState<Tab>("terminal");
+  const { events, clear, appendLocal } = useMessageStream(session);
+  const { toasts, pushToast, dismissToast } = useToasts();
 
-  // Reconnect: incrementar essa key força React a desmontar+remontar o
-  // <Terminal>, o que fecha o WS e reabre conexão limpa.
-  const [reconnectKey, setReconnectKey] = useState(0);
-  const [contextOpen, setContextOpen] = useState(false);
+  const hasNewCount = events.length > 0;
 
-  const wrapperClass = framed ? "agent-frame" : undefined;
-  const wrapperStyle: React.CSSProperties = framed
-    ? {
-        padding: 12,
-        gap: 10,
+  // ── Sticky-bottom / pill ─────────────────────────────────────────────────
+  const timelineRef = useRef<ChatTimelineHandle | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNew, setHasNew] = useState(false);
+
+  const prevLenRef = useRef(0);
+  useEffect(() => {
+    const grew = events.length > prevLenRef.current;
+    prevLenRef.current = events.length;
+    if (isAtBottom) {
+      setHasNew(false);
+    } else if (grew) {
+      setHasNew(true);
+    }
+  }, [events.length, isAtBottom]);
+
+  const onBottomChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+    if (atBottom) setHasNew(false);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    timelineRef.current?.scrollToBottom("smooth");
+    setHasNew(false);
+  }, []);
+
+  // ── Envio de mensagem ────────────────────────────────────────────────────
+  const handleSend = useCallback(
+    async (msg: string, extras?: ChatInputSendExtras) => {
+      if (!onSendMessage) {
+        console.warn("[AgentView] onSendMessage ausente — mensagem ignorada", { session, msg });
+        return;
       }
       const attachmentIds = extras?.attachmentIds;
       const attachments = extras?.attachments;
-      console.log("[AgentView] enviando mensagem", {
-        session,
-        bytes: msg.length,
-        attachments: attachmentIds?.length ?? 0,
-      });
       // Remove markup de imagens para exibir texto limpo na aba Chat
       const displayText = msg.replace(/\n\n\[Imagem \d+:[^\]]*\](\nComentário:[^\n]*)?/g, "").trim();
       // Feedback otimista: empurra user_input localmente com texto limpo
       appendLocal("user_input", displayText, { attachments });
       try {
         await onSendMessage(msg, attachmentIds ? { attachmentIds } : undefined);
-        console.log("[AgentView] mensagem enviada com sucesso", { session });
       } catch (err) {
         console.error("[AgentView] falha ao enviar mensagem", { session, err });
         appendLocal("system", `Falha ao enviar: ${err instanceof Error ? err.message : String(err)}`);
@@ -104,103 +96,83 @@ export function AgentView({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 10,
         minHeight: 0,
         flex: isFlex ? 1 : undefined,
-        height: isFlex ? "100%" : height,
-        overflow: "hidden",
-      };
-
-  const canShowContext = !!teamId && !!agentName;
-
-  return (
-    <div className={wrapperClass} style={wrapperStyle}>
-      {showHeader && (
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 8,
-            flexShrink: 0,
-            minWidth: 0,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color:
-                agentRole === "orchestrator" ? "#a78bfa" : "var(--accent)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              minWidth: 0,
-              flex: 1,
-            }}
-            title={agentName}
-          >
-            {agentName}
-          </span>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              flexShrink: 0,
-            }}
-          >
-            {agentRole && (
-              <span
-                style={{
-                  fontSize: 9,
-                  color: "var(--text-tertiary)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {agentRole === "orchestrator" ? "ORQ" : "WORKER"}
-              </span>
-            )}
-            {agentStatus && <StatusBadge status={agentStatus} size="sm" />}
+        height: isFlex ? "100%" : undefined,
+      }}
+    >
+      {/* Tab bar */}
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
+        }}
+      >
+        {(["terminal", "chat"] as Tab[]).map((t) => {
+          const isActive = tab === t;
+          const label =
+            t === "terminal"
+              ? "Terminal"
+              : `Chat${hasNewCount && t === "chat" ? ` (${events.length})` : ""}`;
+          return (
             <button
-              type="button"
-              className="agent-frame__btn"
-              onClick={() => setReconnectKey((k) => k + 1)}
-              title="Reconectar terminal"
-              aria-label="Reconectar terminal"
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: "6px 16px",
+                fontSize: 11,
+                fontWeight: isActive ? 700 : 400,
+                fontFamily: '"JetBrains Mono", monospace',
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                background: isActive ? "rgba(0,212,255,0.06)" : "transparent",
+                border: "none",
+                borderBottom: isActive
+                  ? "2px solid var(--neon-blue, #00d4ff)"
+                  : "2px solid transparent",
+                color: isActive
+                  ? "var(--neon-blue, #00d4ff)"
+                  : "rgba(255,255,255,0.3)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
             >
-              <RefreshCw size={13} aria-hidden="true" />
+              {label}
             </button>
-            <button
-              type="button"
-              className="agent-frame__btn"
-              onClick={() => setContextOpen(true)}
-              disabled={!canShowContext}
-              title={
-                canShowContext
-                  ? "Ver contexto do agente"
-                  : "Contexto indisponível (sem teamId)"
-              }
-              aria-label="Ver contexto do agente"
-            >
-              <FileText size={13} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      )}
+          );
+        })}
 
+        {/* Botão limpar chat */}
+        {tab === "chat" && events.length > 0 && (
+          <button
+            onClick={clear}
+            style={{
+              marginLeft: "auto",
+              padding: "4px 10px",
+              fontSize: 10,
+              background: "transparent",
+              border: "none",
+              color: "rgba(255,255,255,0.2)",
+              cursor: "pointer",
+              fontFamily: "monospace",
+            }}
+          >
+            limpar
+          </button>
+        )}
+      </div>
+
+      {/* Conteúdo da aba */}
       <div
         style={{
           position: "relative",
-          zIndex: 1,
-          flex: 1,
           minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+          flex: isFlex ? 1 : undefined,
+          display: isFlex ? "flex" : "block",
+          flexDirection: isFlex ? "column" : undefined,
+          overflow: isFlex ? "hidden" : undefined,
         }}
       >
         {/* Terminal — sempre montado, apenas escondido quando na aba chat */}
@@ -241,7 +213,6 @@ export function AgentView({
               onBottomChange={onBottomChange}
             />
 
-            {/* Wrapper relativo: ancora a pill acima do input (bottom: 100%) */}
             {showInput && onSendMessage && (
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <NewMessagesPill
@@ -261,14 +232,8 @@ export function AgentView({
         )}
       </div>
 
-      {canShowContext && (
-        <AgentContextDialog
-          open={contextOpen}
-          onClose={() => setContextOpen(false)}
-          teamId={teamId!}
-          agentName={agentName!}
-        />
-      )}
+      {/* Toasts (validação de anexos, etc) */}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

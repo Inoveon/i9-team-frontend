@@ -6,7 +6,7 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500"],
   variable: "--font-inter",
   display: "swap",
 });
@@ -20,25 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "i9 Team — Agent Dashboard",
-  description:
-    "Portal de gestão e monitoramento de teams de agentes Claude Code",
-  icons: {
-    icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-    ],
-    apple: { url: "/icon-180.png", sizes: "180x180", type: "image/png" },
-  },
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "i9 Team",
-  },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#0a0e17",
+  description: "Maestri multi-agent orchestration dashboard",
 };
 
 export default function RootLayout({
